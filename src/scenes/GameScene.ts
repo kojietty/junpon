@@ -39,7 +39,7 @@ export class GameScene extends Phaser.Scene {
 
     this.stack = new CharacterStack(this, {
       x: VIEWPORT.width / 2,
-      bottomY: VIEWPORT.height - 460,
+      bottomY: VIEWPORT.height - 300,
       visibleCount: DIFFICULTY.stackVisibleCount,
     });
     this.stack.fillInitial();
