@@ -134,7 +134,7 @@ export class GameScene extends Phaser.Scene {
       const cx = i * laneWidth + laneWidth / 2;
 
       // horizontal hit-line
-      this.add.rectangle(cx, VIEWPORT.height - capH - 10, laneWidth - 4, 4, color, 1);
+      // this.add.rectangle(cx, VIEWPORT.height - capH - 10, laneWidth - 4, 4, color, 1);
 
       // key cap badge
       const capG = this.add.graphics();
