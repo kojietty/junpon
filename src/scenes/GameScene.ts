@@ -61,7 +61,8 @@ export class GameScene extends Phaser.Scene {
         fontSize: '40px',
         color: COLORS.textAccent,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(5);
 
     this.timerText = this.add
       .text(VIEWPORT.width - 28, 28, '60', {
@@ -126,33 +127,38 @@ export class GameScene extends Phaser.Scene {
     const zoneHeight = 360;
     const zoneY = VIEWPORT.height - zoneHeight;
     const laneWidth = VIEWPORT.width / LANES.count;
+    const capW = laneWidth - 16;
+    const capH = 72;
+    const capY = VIEWPORT.height - 52;
 
     for (let i = 0; i < LANES.count; i += 1) {
       const color = COLORS.lane[i];
+      const cx = i * laneWidth + laneWidth / 2;
+
+      // lane background
       this.add
-        .rectangle(i * laneWidth, zoneY, laneWidth, zoneHeight, color, 0.28)
+        .rectangle(i * laneWidth, zoneY, laneWidth, zoneHeight, color, 0.22)
         .setOrigin(0, 0)
-        .setStrokeStyle(2, color, 0.8);
+        .setStrokeStyle(1, color, 0.5);
+
+      // horizontal hit-line
+      this.add.rectangle(cx, VIEWPORT.height - capH - 10, laneWidth - 4, 4, color, 1);
+
+      // key cap badge
+      const capG = this.add.graphics();
+      capG.fillStyle(color, 0.92);
+      capG.fillRoundedRect(cx - capW / 2, capY - capH / 2, capW, capH, 14);
+      capG.lineStyle(3, 0xffffff, 0.6);
+      capG.strokeRoundedRect(cx - capW / 2, capY - capH / 2, capW, capH, 14);
+
       this.add
-        .text(i * laneWidth + laneWidth / 2, zoneY + zoneHeight / 2, LANES.keys[i], {
+        .text(cx, capY, LANES.keys[i], {
           fontFamily: FONT,
-          fontSize: '120px',
+          fontSize: '52px',
           fontStyle: 'bold',
           color: '#ffffff',
-          alpha: 0.35,
-        } as Phaser.Types.GameObjects.Text.TextStyle)
-        .setOrigin(0.5)
-        .setAlpha(0.35);
-
-      // bottom hit-line decoration
-      this.add.rectangle(
-        i * laneWidth + laneWidth / 2,
-        VIEWPORT.height - 80,
-        laneWidth - 8,
-        6,
-        color,
-        0.9,
-      );
+        })
+        .setOrigin(0.5);
     }
   }
 
