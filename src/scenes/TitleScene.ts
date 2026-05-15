@@ -44,13 +44,14 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const startText = this.add
-      .text(cx, VIEWPORT.height - 280, 'TAP TO START', {
+      .text(cx, VIEWPORT.height - 380, 'TAP TO START', {
         fontFamily: 'Fredoka, system-ui, sans-serif',
         fontSize: '52px',
         fontStyle: 'bold',
         color: COLORS.textAccent,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
 
     this.tweens.add({
       targets: startText,
@@ -60,8 +61,22 @@ export class TitleScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.input.once('pointerdown', () => this.scene.start('GameScene'));
-    this.input.keyboard?.once('keydown', () => this.scene.start('GameScene'));
+    const rankingText = this.add
+      .text(cx, VIEWPORT.height - 240, 'RANKING', {
+        fontFamily: 'Fredoka, system-ui, sans-serif',
+        fontSize: '40px',
+        fontStyle: 'bold',
+        color: COLORS.lane[2],
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    startText.on('pointerdown', () => this.scene.start('GameScene'));
+    rankingText.on('pointerdown', () => this.scene.start('RankingScene'));
+
+    this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('GameScene'));
+    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('GameScene'));
+
   }
 
   private getHighScore(): number {
