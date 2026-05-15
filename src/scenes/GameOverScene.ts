@@ -70,6 +70,11 @@ export class GameOverScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-ENTER', () => this.scene.start('GameScene'));
     this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TitleScene'));
+
+    // ゲーム終了から少し待って自動でニックネーム入力を表示する
+    this.time.delayedCall(800, () => {
+      this.showNicknameOverlay(score);
+    });
   }
 
   private showNicknameOverlay(score: number): void {
@@ -90,7 +95,8 @@ export class GameOverScene extends Phaser.Scene {
       min-width: 340px;
     `;
     overlay.innerHTML = `
-      <div style="font-size:32px;font-weight:700;margin-bottom:20px;color:#ffd54f">名前を入力</div>
+      <div style="font-size:32px;font-weight:700;margin-bottom:8px;color:#ffd54f">名前を入力</div>
+      <div style="font-size:24px;font-weight:bold;margin-bottom:20px;color:#f5f5f5">スコア: ${score}</div>
       <input id="nickname-input" type="text" maxlength="12" placeholder="名前（12文字以内）"
         value="${RankingService.getLastNickname()}"
         style="width:100%;box-sizing:border-box;font-family:Fredoka,sans-serif;font-size:28px;
@@ -132,7 +138,6 @@ export class GameOverScene extends Phaser.Scene {
 
     overlay.querySelector('#btn-skip')!.addEventListener('click', () => {
       this.removeNicknameOverlay();
-      this.scene.start('TitleScene');
     });
   }
 

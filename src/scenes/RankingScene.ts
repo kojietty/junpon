@@ -38,7 +38,13 @@ export class RankingScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const entries = await RankingService.fetchTop();
+    const rawEntries = await RankingService.fetchTop();
+    const seenNames = new Set<string>();
+    const entries = rawEntries.filter(entry => {
+      if (seenNames.has(entry.nickname)) return false;
+      seenNames.add(entry.nickname);
+      return true;
+    });
     loadingText.destroy();
 
     if (entries.length === 0) {

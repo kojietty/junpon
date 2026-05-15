@@ -25,6 +25,7 @@ export class GameScene extends Phaser.Scene {
   private pauseMenu!: Phaser.GameObjects.Container;
   private volumeOverlay: HTMLDivElement | null = null;
   private isPaused = false;
+  private isCountingDown = false;
   private emitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() {
@@ -83,16 +84,66 @@ export class GameScene extends Phaser.Scene {
       } as Phaser.Types.GameObjects.Text.TextStyle)
       .setOrigin(0, 0);
 
-    this.sessionTimer = this.time.delayedCall(SESSION_DURATION_MS, () => this.endSession());
-
-    this.bgm = this.sound.add('bgm', { loop: true, volume: SoundSettings.bgmVolume() });
-    this.bgm.play();
-
     new InputController(this, (lane) => this.onInput(lane));
 
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     this.createPauseMenu();
+
+    this.startCountdown();
+  }
+
+  private startCountdown(): void {
+    this.isCountingDown = true;
+    this.isPaused = true;
+    
+    const cx = VIEWPORT.width / 2;
+    const cy = VIEWPORT.height / 2;
+    const countText = this.add.text(cx, cy - 50, '3', {
+      fontFamily: FONT,
+      fontSize: '180px',
+      fontStyle: 'bold',
+      color: COLORS.textAccent,
+    }).setOrigin(0.5).setDepth(100);
+
+    let count = 3;
+    const tick = () => {
+      this.tweens.add({
+        targets: countText,
+        scale: { from: 1.5, to: 1 },
+        alpha: { from: 0.3, to: 1 },
+        duration: 300,
+        ease: 'Back.easeOut',
+      });
+    };
+
+    tick();
+
+    this.time.addEvent({
+      delay: 1000,
+      repeat: 3,
+      callback: () => {
+        count--;
+        if (count > 0) {
+          countText.setText(String(count));
+          tick();
+        } else if (count === 0) {
+          countText.setText('GO!');
+          tick();
+          this.startGame();
+        } else {
+          countText.destroy();
+        }
+      }
+    });
+  }
+
+  private startGame(): void {
+    this.isCountingDown = false;
+    this.isPaused = false;
+    this.sessionTimer = this.time.delayedCall(SESSION_DURATION_MS, () => this.endSession());
+    this.bgm = this.sound.add('bgm', { loop: true, volume: SoundSettings.bgmVolume() });
+    this.bgm.play();
   }
 
   private createParticleEmitter(): void {
@@ -244,6 +295,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private togglePause(): void {
+    if (this.isCountingDown) return;
     if (this.isPaused) {
       this.closePause();
     } else {
@@ -253,14 +305,12 @@ export class GameScene extends Phaser.Scene {
 
   private openPause(): void {
     this.isPaused = true;
-    this.sessionTimer.paused = true;
     (this.bgm as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).pause?.();
     this.pauseMenu.setVisible(true);
   }
 
   private closePause(): void {
     this.isPaused = false;
-    this.sessionTimer.paused = false;
     (this.bgm as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).resume?.();
     this.pauseMenu.setVisible(false);
     this.removeVolumeOverlay();
@@ -364,14 +414,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   override update(_time: number, _delta: number): void {
+    if (this.sessionTimer) {
+      const remain = Math.max(0, this.sessionTimer.getRemaining());
+      const secs = Math.ceil(remain / 1000);
+      this.timerText.setText(`${secs}`);
+      if (secs <= 10) {
+        this.timerText.setColor('#ff5252');
+      }
+    }
+
     if (this.isPaused) return;
     this.stack.tickRefill(DIFFICULTY.baseInterval);
-    const remain = Math.max(0, this.sessionTimer.getRemaining());
-    const secs = Math.ceil(remain / 1000);
-    this.timerText.setText(`${secs}`);
-    if (secs <= 10) {
-      this.timerText.setColor('#ff5252');
-    }
   }
 
   private endSession(): void {
