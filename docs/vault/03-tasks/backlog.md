@@ -33,6 +33,16 @@ tags: [tasks]
 - [x] CLAUDE.md / vault ドキュメント更新
 - [ ] `npm install` → ブラウザで [[../04-logs/2026-05-15|検証手順]] 通り確認
 
+## Phase 2.5': 公開 (GitHub + Cloudflare Pages) — 2026-05-15
+
+- [x] `typescript-eslint` を v8 へ上げて peer dep 衝突を解消
+- [x] `.nvmrc` (Node 20) と `.wrangler/` 無視を追加
+- [x] `git init` → 初回コミット → `kojietty/junpon` へ push
+- [ ] Cloudflare Pages ダッシュボードで GitHub 連携を有効化 (ユーザー作業)
+- [ ] Build settings: `npm run build` / output `dist` / NODE_VERSION=20 を指定
+- [ ] 発行された `*.pages.dev` URL でゲームが動くことを確認
+- [ ] README.md に公開 URL を追記
+
 ## Phase 3': 演出・難易度・タップ対応
 
 - [ ] `DifficultyCurve` を `tickRefill` 間隔に再接続 (スコア連動の出現加速)
