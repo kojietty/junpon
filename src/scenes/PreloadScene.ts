@@ -36,6 +36,9 @@ export class PreloadScene extends Phaser.Scene {
       frame.destroy();
       fill.destroy();
     });
+
+    this.load.audio('bgm', 'assets/audio/BGM.mp3');
+    this.load.audio('se-hit', 'assets/audio/SE.mp3');
   }
 
   create(): void {

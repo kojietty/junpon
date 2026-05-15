@@ -18,6 +18,7 @@ export class GameScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private sessionTimer!: Phaser.Time.TimerEvent;
+  private bgm!: Phaser.Sound.BaseSound;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -64,6 +65,9 @@ export class GameScene extends Phaser.Scene {
 
     this.sessionTimer = this.time.delayedCall(SESSION_DURATION_MS, () => this.endSession());
 
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.5 });
+    this.bgm.play();
+
     new InputController(this, (lane) => this.onInput(lane));
   }
 
@@ -102,6 +106,7 @@ export class GameScene extends Phaser.Scene {
     if (bottom === lane) {
       this.stack.consumeBottom();
       this.scoreManager.success();
+      this.sound.play('se-hit', { volume: 0.8 });
     } else {
       this.scoreManager.fail();
       this.cameras.main.flash(120, 255, 80, 80);
@@ -125,6 +130,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private endSession(): void {
+    this.bgm.stop();
     this.scene.start('GameOverScene', { score: this.scoreManager.score });
   }
 }
