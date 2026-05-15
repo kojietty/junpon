@@ -78,7 +78,7 @@ export class TitleScene extends Phaser.Scene {
         fontFamily: 'Fredoka, system-ui, sans-serif',
         fontSize: '32px',
         fontStyle: 'bold',
-        color: COLORS.lane[1],
+        color: '#f06292', // COLORS.lane[1]
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
