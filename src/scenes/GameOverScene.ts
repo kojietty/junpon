@@ -5,6 +5,8 @@ interface GameOverData {
   score: number;
 }
 
+const FONT = 'Fredoka, system-ui, sans-serif';
+
 export class GameOverScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameOverScene' });
@@ -18,9 +20,14 @@ export class GameOverScene extends Phaser.Scene {
     if (isNewHigh) localStorage.setItem(STORAGE_KEYS.highScore, String(score));
     const highScore = isNewHigh ? score : previousHigh;
 
+    // background
+    const g = this.add.graphics();
+    g.fillGradientStyle(COLORS.jungleDark, COLORS.jungleDark, COLORS.background, COLORS.background);
+    g.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
+
     this.add
-      .text(cx, 360, 'TIME UP!', {
-        fontFamily: 'system-ui, sans-serif',
+      .text(cx, 320, 'TIME UP!', {
+        fontFamily: FONT,
         fontSize: '110px',
         fontStyle: 'bold',
         color: COLORS.textAccent,
@@ -28,48 +35,67 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(cx, 520, `SCORE: ${score}`, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '64px',
+      .text(cx, 490, `SCORE  ${score}`, {
+        fontFamily: FONT,
+        fontSize: '72px',
+        fontStyle: 'bold',
         color: COLORS.textPrimary,
       })
       .setOrigin(0.5);
 
     this.add
-      .text(cx, 620, `HIGH: ${highScore}${isNewHigh ? '  NEW!' : ''}`, {
-        fontFamily: 'system-ui, sans-serif',
+      .text(cx, 590, `BEST  ${highScore}${isNewHigh ? '  🎉 NEW!' : ''}`, {
+        fontFamily: FONT,
         fontSize: '44px',
         color: isNewHigh ? COLORS.textAccent : COLORS.textPrimary,
       })
       .setOrigin(0.5);
 
-    const retry = this.add
-      .text(cx, VIEWPORT.height - 360, 'TAP TO RETRY', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '52px',
-        fontStyle: 'bold',
-        color: COLORS.textAccent,
-      })
-      .setOrigin(0.5);
-    this.tweens.add({ targets: retry, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+    // RETRY button
+    this.makeButton(cx, VIEWPORT.height - 440, 'RETRY', COLORS.lane[2], () => {
+      this.scene.start('GameScene');
+    });
+
+    // TITLE button
+    this.makeButton(cx, VIEWPORT.height - 320, 'TITLE', 0x607d8b, () => {
+      this.scene.start('TitleScene');
+    });
+
+    // keyboard shortcuts
+    this.input.keyboard?.on('keydown-ENTER', () => this.scene.start('GameScene'));
+    this.input.keyboard?.on('keydown-SPACE', () => this.scene.start('GameScene'));
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TitleScene'));
+  }
+
+  private makeButton(
+    x: number,
+    y: number,
+    label: string,
+    color: number,
+    onClick: () => void,
+  ): void {
+    const w = 460;
+    const h = 90;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(color, 0.9);
+    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 18);
 
     this.add
-      .text(cx, VIEWPORT.height - 260, 'HOLD TO TITLE', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '32px',
-        color: COLORS.textPrimary,
+      .text(x, y, label, {
+        fontFamily: FONT,
+        fontSize: '52px',
+        fontStyle: 'bold',
+        color: '#ffffff',
       })
       .setOrigin(0.5);
 
-    let pressedAt = 0;
-    this.input.on('pointerdown', () => {
-      pressedAt = this.time.now;
-    });
-    this.input.on('pointerup', () => {
-      const held = this.time.now - pressedAt;
-      this.scene.start(held > 600 ? 'TitleScene' : 'GameScene');
-    });
-    this.input.keyboard?.once('keydown', () => this.scene.start('GameScene'));
+    const hit = this.add
+      .rectangle(x, y, w, h, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => bg.setAlpha(0.65));
+    hit.on('pointerout', () => bg.setAlpha(1));
+    hit.on('pointerdown', onClick);
   }
 
   private getHighScore(): number {

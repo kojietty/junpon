@@ -40,6 +40,11 @@ export class CharacterStack {
     return bottom ? bottom.lane : null;
   }
 
+  getBottomPosition(): { x: number; y: number } | null {
+    const bottom = this.characters[0];
+    return bottom ? { x: bottom.x, y: bottom.y } : null;
+  }
+
   consumeBottom(): void {
     const bottom = this.characters.shift();
     if (!bottom) return;
