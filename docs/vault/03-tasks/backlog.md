@@ -38,10 +38,9 @@ tags: [tasks]
 - [x] `typescript-eslint` を v8 へ上げて peer dep 衝突を解消
 - [x] `.nvmrc` (Node 20) と `.wrangler/` 無視を追加
 - [x] `git init` → 初回コミット → `kojietty/junpon` へ push
-- [ ] Cloudflare Pages ダッシュボードで GitHub 連携を有効化 (ユーザー作業)
-- [ ] Build settings: `npm run build` / output `dist` / NODE_VERSION=20 を指定
-- [ ] 発行された `*.pages.dev` URL でゲームが動くことを確認
-- [ ] README.md に公開 URL を追記
+- [x] Cloudflare Pages ダッシュボードで GitHub 連携を有効化 (ユーザー作業)
+- [x] GitHub Actions (`wrangler-action@v3`) でデプロイ → **https://jampon.pagudaruma.workers.dev/** で公開
+- [x] README.md に公開 URL を追記
 
 ## Phase 3': 演出・難易度・タップ対応
 

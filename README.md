@@ -1,6 +1,8 @@
 # JUNGLE TAP
 
-LINE Friends の「JUNGLE PANG」を参考にした、左右タップで色を仕分けるシンプルなブラウザゲーム。
+**🎮 Play: https://jampon.pagudaruma.workers.dev/**
+
+S / D / J / K の 4 キーで中央に積まれたノーツを下から達磨落とし式に消す 60 秒アーケード。
 
 > ⚠️ 本プロジェクトは個人学習・模倣練習を目的としています。LINE Friends のキャラクター・ロゴ・名称は使用していません。
 
