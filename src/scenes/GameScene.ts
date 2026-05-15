@@ -124,8 +124,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawLaneZones(): void {
-    const zoneHeight = 360;
-    const zoneY = VIEWPORT.height - zoneHeight;
     const laneWidth = VIEWPORT.width / LANES.count;
     const capW = laneWidth - 16;
     const capH = 72;
@@ -134,12 +132,6 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < LANES.count; i += 1) {
       const color = COLORS.lane[i];
       const cx = i * laneWidth + laneWidth / 2;
-
-      // lane background
-      this.add
-        .rectangle(i * laneWidth, zoneY, laneWidth, zoneHeight, color, 0.22)
-        .setOrigin(0, 0)
-        .setStrokeStyle(1, color, 0.5);
 
       // horizontal hit-line
       this.add.rectangle(cx, VIEWPORT.height - capH - 10, laneWidth - 4, 4, color, 1);
