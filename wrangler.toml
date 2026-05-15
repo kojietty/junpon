@@ -7,5 +7,5 @@ directory = "./dist"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "junpon-scores"
+database_name = "jampondb"
 database_id = "f1b9e680-527b-426a-be3b-b0f2ab948f64"
