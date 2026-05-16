@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
-import { LANES, type LaneKey } from '@/config/GameConfig';
+import { MODES, type GameMode, type LaneKey } from '@/config/GameConfig';
 
 export class InputController {
-  constructor(scene: Phaser.Scene, onInput: (lane: LaneKey) => void) {
+  constructor(scene: Phaser.Scene, onInput: (lane: LaneKey) => void, mode: GameMode) {
     const keyboard = scene.input.keyboard;
     if (!keyboard) return;
-    LANES.keys.forEach((key, idx) => {
+    MODES[mode].keys.forEach((key, idx) => {
       keyboard.on(`keydown-${key}`, () => onInput(idx as LaneKey));
     });
-    // pointer 入力は Phase 2 (モバイル 4 分割タップ) で追加予定
+    // pointer 入力は Phase 2 (モバイル N 分割タップ) で追加予定
   }
 }

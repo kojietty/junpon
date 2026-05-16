@@ -9,13 +9,21 @@ interface Env {
 interface ScoreRow {
   nickname: string;
   score: number;
+  mode: number;
   created_at: number;
 }
 
 interface PostBody {
   nickname?: unknown;
   score?: unknown;
+  mode?: unknown;
   deviceId?: unknown;
+}
+
+function parseModeParam(raw: string | null): 2 | 4 | null {
+  if (raw === null) return 4; // 旧 URL のフォールバックは 4 キー
+  const n = Number.parseInt(raw, 10);
+  return n === 2 || n === 4 ? n : null;
 }
 
 export default {
@@ -23,7 +31,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/scores') {
-      if (request.method === 'GET') return handleGet(env.DB);
+      if (request.method === 'GET') return handleGet(url, env.DB);
       if (request.method === 'POST') return handlePost(request, env.DB);
       return new Response('Method Not Allowed', { status: 405 });
     }
@@ -32,9 +40,15 @@ export default {
   },
 };
 
-async function handleGet(db: D1Database): Promise<Response> {
+async function handleGet(url: URL, db: D1Database): Promise<Response> {
+  const mode = parseModeParam(url.searchParams.get('mode'));
+  if (mode === null) return new Response('invalid mode', { status: 400 });
+
   const { results } = await db
-    .prepare('SELECT nickname, score, created_at FROM scores ORDER BY score DESC LIMIT 50')
+    .prepare(
+      'SELECT nickname, score, mode, created_at FROM scores WHERE mode = ?1 ORDER BY score DESC LIMIT 50',
+    )
+    .bind(mode)
     .all<ScoreRow>();
   return Response.json({ scores: results ?? [] });
 }
@@ -47,7 +61,7 @@ async function handlePost(request: Request, db: D1Database): Promise<Response> {
     return new Response('invalid json', { status: 400 });
   }
 
-  const { nickname, score, deviceId } = body;
+  const { nickname, score, mode, deviceId } = body;
 
   if (typeof nickname !== 'string' || nickname.trim().length < 1 || nickname.length > 12) {
     return new Response('invalid nickname', { status: 400 });
@@ -55,10 +69,14 @@ async function handlePost(request: Request, db: D1Database): Promise<Response> {
   if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 9999) {
     return new Response('invalid score', { status: 400 });
   }
+  if (mode !== 2 && mode !== 4) {
+    return new Response('invalid mode', { status: 400 });
+  }
 
   const deviceStr = typeof deviceId === 'string' ? deviceId : '';
   const now = Date.now();
 
+  // モード横断のグローバル制限 — 30秒以内の連続送信を弾く（スパム対策）
   if (deviceStr) {
     const recent = await db
       .prepare(
@@ -73,9 +91,9 @@ async function handlePost(request: Request, db: D1Database): Promise<Response> {
 
   await db
     .prepare(
-      'INSERT INTO scores (nickname, score, device_id, created_at) VALUES (?1, ?2, ?3, ?4)',
+      'INSERT INTO scores (nickname, score, mode, device_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)',
     )
-    .bind(nickname.trim(), score, deviceStr, now)
+    .bind(nickname.trim(), score, mode, deviceStr, now)
     .run();
 
   return new Response('ok', { status: 201 });

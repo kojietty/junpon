@@ -58,9 +58,24 @@ tags: [tasks]
 - [ ] 縦持ち / 横持ちでの操作感調整
 - [ ] GitHub Pages デプロイ
 
+## Phase 2.6': 2キーモード追加 — 2026-05-16
+
+- [x] `GameConfig.ts` を `MODES` ルックアップに再構成（`LANES` / `DIFFICULTY.laneCount` 撤去、`GameMode` / `parseMode` / `STORAGE_KEYS.highScore(mode)` / `lastMode` 追加）
+- [x] `Character` / `CharacterStack` / `InputController` をモード対応化
+- [x] `RankingService` の `fetchTop(mode)` / `submit(nickname, score, mode)` 化
+- [x] `BootScene` に旧 `jungle-tap:highscore` → `:4key` の冪等移行
+- [x] `TitleScene` を 2KEY START / 4KEY START の 2 ボタン化、BEST 並記
+- [x] `GameScene` / `GameOverScene` を `mode` 引き回し対応（ポーズリトライ含む）
+- [x] `RankingScene` に 2KEY/4KEY タブ、フェッチキャッシュ、行 destroy/redraw
+- [x] `worker.ts` を `mode` クエリ・カラム対応、レート制限はデバイス単位グローバル維持
+- [x] `migrations/0001_add_mode_column.sql` 追加
+- [x] vault / CLAUDE.md 更新 ([[../04-logs/2026-05-16]])
+- [x] D1 migration を本番 (remote) に適用済み (`wrangler d1 execute jampondb --remote --file=migrations/0001_add_mode_column.sql`)
+- [ ] ブラウザ実機で動作確認（プラン §動作確認手順）
+
 ## Phase 5: オプション
 
-- [ ] 難易度モード (easy 3キー / normal 4キー / hard 5キー)
+- [ ] 追加モード (3キー / 5キー — `MODES` テーブルへのエントリ追加だけで拡張可能になった)
 - [ ] ボーナス用レアノーツ
 - [ ] 終了直前のラストスパート演出
 

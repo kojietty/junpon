@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
-import { COLORS, LANES, STORAGE_KEYS, VIEWPORT } from '@/config/GameConfig';
+import {
+  COLORS,
+  DEFAULT_MODE,
+  MODES,
+  STORAGE_KEYS,
+  VIEWPORT,
+  parseMode,
+  type GameMode,
+} from '@/config/GameConfig';
 import { SoundSettings } from '@/systems/SoundSettings';
 
 const FONT = 'Fredoka, system-ui, sans-serif';
@@ -73,10 +81,10 @@ export class TitleScene extends Phaser.Scene {
       delay: 700,
     });
 
-    this.buildKeyPreview(cx, 430);
+    this.buildKeyPreview(cx, 410);
 
     const desc = this.add
-      .text(cx, 555, '60秒で何点取れるか挑戦！', {
+      .text(cx, 525, '60秒で何点取れるか挑戦！', {
         fontFamily: FONT,
         fontSize: '30px',
         color: COLORS.textPrimary,
@@ -84,11 +92,12 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0);
 
-    const highScore = this.getHighScore();
+    const best2 = this.getHighScore(2);
+    const best4 = this.getHighScore(4);
     const hiText = this.add
-      .text(cx, 615, `BEST  ${highScore}`, {
+      .text(cx, 595, `BEST   2KEY ${best2}    4KEY ${best4}`, {
         fontFamily: FONT,
-        fontSize: '34px',
+        fontSize: '30px',
         fontStyle: 'bold',
         color: COLORS.textAccent,
       })
@@ -99,44 +108,51 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: desc, alpha: 0.85, delay: 150, duration: 400 });
     this.tweens.add({ targets: hiText, alpha: 1, delay: 250, duration: 400 });
 
-    const startBtn = this.makeButton(cx, VIEWPORT.height - 390, 'TAP TO START', COLORS.lane[1], () => {
+    const start2Btn = this.makeButton(
+      cx,
+      VIEWPORT.height - 410,
+      '2KEY START',
+      COLORS.lane[1],
+      () => this.beginGame(2),
+    );
+    const start4Btn = this.makeButton(
+      cx,
+      VIEWPORT.height - 310,
+      '4KEY START',
+      COLORS.lane[2],
+      () => this.beginGame(4),
+    );
+    const rankingBtn = this.makeButton(cx, VIEWPORT.height - 210, 'RANKING', 0x607d8b, () => {
       this.removeVolumeOverlay();
       this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start('RankingScene', { initialMode: this.getLastMode() }),
+      );
     });
-    startBtn.setAlpha(0).setScale(0.88);
-    this.tweens.add({
-      targets: startBtn,
-      alpha: 1,
-      scale: 1,
-      delay: 380,
-      duration: 380,
-      ease: 'Back.easeOut',
+
+    [start2Btn, start4Btn, rankingBtn].forEach((btn, i) => {
+      btn.setAlpha(0).setScale(0.88);
+      this.tweens.add({
+        targets: btn,
+        alpha: 1,
+        scale: 1,
+        delay: 380 + i * 110,
+        duration: 380,
+        ease: 'Back.easeOut',
+      });
     });
-    // Subtle alpha pulse so it draws attention
+
+    // Subtle pulse on the recommended (last-played) start button so it draws the eye
+    const lastMode = this.getLastMode();
+    const recommended = lastMode === 2 ? start2Btn : start4Btn;
     this.tweens.add({
-      targets: startBtn,
+      targets: recommended,
       alpha: 0.72,
       duration: 900,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
-      delay: 1000,
-    });
-
-    const rankingBtn = this.makeButton(cx, VIEWPORT.height - 258, 'RANKING', COLORS.lane[2], () => {
-      this.removeVolumeOverlay();
-      this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('RankingScene'));
-    });
-    rankingBtn.setAlpha(0).setScale(0.88);
-    this.tweens.add({
-      targets: rankingBtn,
-      alpha: 1,
-      scale: 1,
-      delay: 490,
-      duration: 380,
-      ease: 'Back.easeOut',
+      delay: 1100,
     });
 
     const volumeText = this.add
@@ -159,9 +175,10 @@ export class TitleScene extends Phaser.Scene {
     const w = 88;
     const h = 88;
     const gap = 108;
+    const keys = MODES[4].keys;
     const startX = cx - gap * 1.5;
 
-    for (let i = 0; i < LANES.count; i++) {
+    for (let i = 0; i < keys.length; i++) {
       const x = startX + i * gap;
       const color = COLORS.lane[i];
       const g = this.add.graphics();
@@ -169,12 +186,11 @@ export class TitleScene extends Phaser.Scene {
       g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 16);
       g.lineStyle(3, 0xffffff, 0.4);
       g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 16);
-      // Top shine
       g.fillStyle(0xffffff, 0.18);
       g.fillRoundedRect(x - w / 2 + 5, y - h / 2 + 5, w - 10, 22, { tl: 10, tr: 10, bl: 0, br: 0 });
 
       this.add
-        .text(x, y + 2, LANES.keys[i], {
+        .text(x, y + 2, keys[i], {
           fontFamily: FONT,
           fontSize: '46px',
           fontStyle: 'bold',
@@ -192,7 +208,7 @@ export class TitleScene extends Phaser.Scene {
     onClick: () => void,
   ): Phaser.GameObjects.Container {
     const w = 480;
-    const h = 84;
+    const h = 76;
 
     const bg = this.add.graphics();
     const drawBg = (alpha: number) => {
@@ -209,7 +225,7 @@ export class TitleScene extends Phaser.Scene {
     const text = this.add
       .text(0, 0, label, {
         fontFamily: FONT,
-        fontSize: '44px',
+        fontSize: '40px',
         fontStyle: 'bold',
         color: '#ffffff',
       })
@@ -233,19 +249,26 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private setupInput(): void {
-    const goToGame = () => {
-      this.removeVolumeOverlay();
-      this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
-    };
-    this.input.keyboard?.once('keydown-ENTER', goToGame);
-    this.input.keyboard?.once('keydown-SPACE', goToGame);
+    const go = () => this.beginGame(this.getLastMode());
+    this.input.keyboard?.once('keydown-ENTER', go);
+    this.input.keyboard?.once('keydown-SPACE', go);
   }
 
-  private getHighScore(): number {
-    const raw = localStorage.getItem(STORAGE_KEYS.highScore);
+  private beginGame(mode: GameMode): void {
+    localStorage.setItem(STORAGE_KEYS.lastMode, String(mode));
+    this.removeVolumeOverlay();
+    this.cameras.main.fadeOut(180, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene', { mode }));
+  }
+
+  private getHighScore(mode: GameMode): number {
+    const raw = localStorage.getItem(STORAGE_KEYS.highScore(mode));
     const value = raw === null ? 0 : Number.parseInt(raw, 10);
     return Number.isFinite(value) ? value : 0;
+  }
+
+  private getLastMode(): GameMode {
+    return parseMode(localStorage.getItem(STORAGE_KEYS.lastMode)) ?? DEFAULT_MODE;
   }
 
   private toggleVolumeOverlay(): void {

@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import {
   COLORS,
+  DEFAULT_MODE,
   DIFFICULTY,
-  LANES,
+  MODES,
   SESSION_DURATION_MS,
   VIEWPORT,
+  type GameMode,
   type LaneKey,
 } from '@/config/GameConfig';
 import { CharacterStack } from '@/objects/CharacterStack';
@@ -12,11 +14,16 @@ import { InputController } from '@/systems/InputController';
 import { ScoreManager } from '@/systems/ScoreManager';
 import { SoundSettings } from '@/systems/SoundSettings';
 
+interface GameSceneData {
+  mode?: GameMode;
+}
+
 const FONT = 'Fredoka, system-ui, sans-serif';
 
 const toHex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 export class GameScene extends Phaser.Scene {
+  private mode: GameMode = DEFAULT_MODE;
   private stack!: CharacterStack;
   private scoreManager!: ScoreManager;
   private scoreText!: Phaser.GameObjects.Text;
@@ -28,7 +35,7 @@ export class GameScene extends Phaser.Scene {
   private volumeOverlay: HTMLDivElement | null = null;
   private isPaused = false;
   private isCountingDown = false;
-  private emitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  private emitters: Partial<Record<LaneKey, Phaser.GameObjects.Particles.ParticleEmitter>> = {};
   private keyCaps: Phaser.GameObjects.Container[] = [];
   private lastTimerSecs = 61;
 
@@ -36,9 +43,10 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
-  create(): void {
+  create(data: GameSceneData): void {
+    this.mode = data?.mode ?? DEFAULT_MODE;
     this.isPaused = false;
-    this.emitters = [];
+    this.emitters = {};
     this.keyCaps = [];
     this.lastTimerSecs = 61;
 
@@ -50,6 +58,7 @@ export class GameScene extends Phaser.Scene {
       x: VIEWPORT.width / 2,
       bottomY: VIEWPORT.height - 300,
       visibleCount: DIFFICULTY.stackVisibleCount,
+      mode: this.mode,
     });
     this.stack.fillInitial();
 
@@ -97,7 +106,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
-    new InputController(this, (lane) => this.onInput(lane));
+    new InputController(this, (lane) => this.onInput(lane), this.mode);
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     this.createPauseMenu();
@@ -179,13 +188,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createParticleEmitters(): void {
-    COLORS.lane.forEach((color, i) => {
-      const key = `particle-lane-${i}`;
-      const g = this.make.graphics({});
-      g.fillStyle(color);
-      g.fillCircle(6, 6, 6);
-      g.generateTexture(key, 12, 12);
-      g.destroy();
+    const modeCfg = MODES[this.mode];
+    for (let lane = 0; lane < modeCfg.count; lane++) {
+      const color = COLORS.lane[modeCfg.colorIdx[lane]];
+      const key = `particle-lane-${this.mode}-${lane}`;
+      if (!this.textures.exists(key)) {
+        const g = this.make.graphics({});
+        g.fillStyle(color);
+        g.fillCircle(6, 6, 6);
+        g.generateTexture(key, 12, 12);
+        g.destroy();
+      }
 
       const emitter = this.add.particles(0, 0, key, {
         speed: { min: 100, max: 310 },
@@ -196,8 +209,8 @@ export class GameScene extends Phaser.Scene {
         emitting: false,
       });
       emitter.setDepth(10);
-      this.emitters.push(emitter);
-    });
+      this.emitters[lane as LaneKey] = emitter;
+    }
   }
 
   private drawBackground(): void {
@@ -212,13 +225,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawLaneZones(): void {
-    const laneWidth = VIEWPORT.width / LANES.count;
-    const capW = laneWidth - 16;
+    const modeCfg = MODES[this.mode];
+    const laneWidth = VIEWPORT.width / modeCfg.count;
+    // 2 キーモードではレーン幅が大きすぎてキャップが間延びするので上限を設ける
+    const capW = Math.min(laneWidth - 16, 240);
     const capH = 72;
     const capY = VIEWPORT.height - 52;
 
-    for (let i = 0; i < LANES.count; i++) {
-      const color = COLORS.lane[i];
+    for (let i = 0; i < modeCfg.count; i++) {
+      const color = COLORS.lane[modeCfg.colorIdx[i]];
       const cx = i * laneWidth + laneWidth / 2;
 
       const capG = this.add.graphics();
@@ -230,7 +245,7 @@ export class GameScene extends Phaser.Scene {
       capG.fillRoundedRect(-capW / 2 + 4, -capH / 2 + 4, capW - 8, 16, { tl: 8, tr: 8, bl: 0, br: 0 });
 
       const keyText = this.add
-        .text(0, 0, LANES.keys[i], {
+        .text(0, 0, modeCfg.keys[i], {
           fontFamily: FONT,
           fontSize: '52px',
           fontStyle: 'bold',
@@ -270,7 +285,9 @@ export class GameScene extends Phaser.Scene {
       this.removeVolumeOverlay();
       this.bgm.stop();
       this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start('GameScene', { mode: this.mode }),
+      );
     });
 
     const btnTitle = this.makePauseBtn(cx, panelY + 268, 'タイトルに戻る', 0x607d8b, () => {
@@ -631,7 +648,7 @@ export class GameScene extends Phaser.Scene {
     this.bgm.stop();
     this.cameras.main.fadeOut(180, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameOverScene', { score: this.scoreManager.score });
+      this.scene.start('GameOverScene', { score: this.scoreManager.score, mode: this.mode });
     });
   }
 

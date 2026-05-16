@@ -6,11 +6,14 @@ export const VIEWPORT = {
 } as const;
 
 export type LaneKey = 0 | 1 | 2 | 3;
+export type GameMode = 2 | 4;
 
-export const LANES = {
-  count: 4,
-  keys: ['S', 'D', 'J', 'K'] as const,
+export const MODES = {
+  2: { count: 2, keys: ['D', 'J'] as const, colorIdx: [1, 2] as const },
+  4: { count: 4, keys: ['S', 'D', 'J', 'K'] as const, colorIdx: [0, 1, 2, 3] as const },
 } as const;
+
+export const DEFAULT_MODE: GameMode = 4;
 
 export const COLORS = {
   background: 0x0d2a18,
@@ -26,15 +29,21 @@ export const DIFFICULTY = {
   baseInterval: 700,
   minInterval: 200,
   decayPerScore: 8,
-  laneCount: 4,
   stackVisibleCount: 6,
 } as const;
 
 export const SESSION_DURATION_MS = 60_000;
 
 export const STORAGE_KEYS = {
-  highScore: 'jungle-tap:highscore',
+  highScore: (mode: GameMode) => `jungle-tap:highscore:${mode}key`,
+  legacyHighScore: 'jungle-tap:highscore',
+  lastMode: 'jungle-tap:last-mode',
 } as const;
+
+export function parseMode(raw: unknown): GameMode | null {
+  const n = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw;
+  return n === 2 || n === 4 ? n : null;
+}
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

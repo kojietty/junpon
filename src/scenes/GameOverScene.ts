@@ -1,26 +1,29 @@
 import Phaser from 'phaser';
-import { COLORS, STORAGE_KEYS, VIEWPORT } from '@/config/GameConfig';
+import { COLORS, DEFAULT_MODE, STORAGE_KEYS, VIEWPORT, type GameMode } from '@/config/GameConfig';
 import { RankingService } from '@/services/RankingService';
 
 interface GameOverData {
   score: number;
+  mode?: GameMode;
 }
 
 const FONT = 'Fredoka, system-ui, sans-serif';
 
 export class GameOverScene extends Phaser.Scene {
   private nicknameOverlay: HTMLDivElement | null = null;
+  private mode: GameMode = DEFAULT_MODE;
 
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
   create(data: GameOverData): void {
+    this.mode = data?.mode ?? DEFAULT_MODE;
     const cx = VIEWPORT.width / 2;
     const score = data.score ?? 0;
     const previousHigh = this.getHighScore();
     const isNewHigh = score > previousHigh;
-    if (isNewHigh) localStorage.setItem(STORAGE_KEYS.highScore, String(score));
+    if (isNewHigh) localStorage.setItem(STORAGE_KEYS.highScore(this.mode), String(score));
     const highScore = isNewHigh ? score : previousHigh;
 
     const g = this.add.graphics();
@@ -120,7 +123,9 @@ export class GameOverScene extends Phaser.Scene {
     });
     const retryBtn = this.makeButton(cx, VIEWPORT.height - 378, 'RETRY', COLORS.lane[2], () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start('GameScene', { mode: this.mode }),
+      );
     });
     const titleBtn = this.makeButton(cx, VIEWPORT.height - 258, 'TITLE', 0x607d8b, () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
@@ -141,7 +146,9 @@ export class GameOverScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-ENTER', () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start('GameScene', { mode: this.mode }),
+      );
     });
     this.input.keyboard?.on('keydown-ESC', () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
@@ -276,9 +283,13 @@ export class GameOverScene extends Phaser.Scene {
       if (!nickname) { errorEl.textContent = '名前を入力してください'; return; }
       errorEl.textContent = '送信中...';
       try {
-        await RankingService.submit(nickname, score);
+        await RankingService.submit(nickname, score, this.mode);
         this.removeNicknameOverlay();
-        this.scene.start('RankingScene', { myScore: score, myNickname: nickname });
+        this.scene.start('RankingScene', {
+          myScore: score,
+          myNickname: nickname,
+          initialMode: this.mode,
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         errorEl.textContent = msg === '429' ? '連続送信はできません' : '送信失敗。再試行してください';
@@ -302,7 +313,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private getHighScore(): number {
-    const raw = localStorage.getItem(STORAGE_KEYS.highScore);
+    const raw = localStorage.getItem(STORAGE_KEYS.highScore(this.mode));
     const value = raw === null ? 0 : Number.parseInt(raw, 10);
     return Number.isFinite(value) ? value : 0;
   }
