@@ -13,8 +13,21 @@ tags: [tech]
 | Lint | **ESLint + typescript-eslint** | 標準 |
 | Format | **Prettier** | 標準 |
 | パッケージ | **npm** | Windows 環境でのトラブル少 |
-| 永続化 | **localStorage** | バックエンド不要、ハイスコアのみ保存 |
-| デプロイ | **GitHub Pages / Cloudflare Pages**（任意） | 静的のみで完結 |
+| 永続化 (クライアント) | **localStorage** | モード別ハイスコア / lastMode / deviceId / nickname |
+| 永続化 (サーバ) | **Cloudflare D1 (SQLite)** | サーバランキング `scores` テーブル |
+| バックエンド | **Cloudflare Workers (`worker.ts`)** | `/api/scores` GET/POST、静的アセット配信兼用 |
+| デプロイ | **Cloudflare Pages / Workers** | `wrangler` 経由、`dist/` を ASSETS バインディングに |
+
+## D1 マイグレーション運用
+
+- `migrations/NNNN_<description>.sql` の連番ファイルで管理（手動採番）
+- 適用コマンド:
+  ```bash
+  npx wrangler d1 execute jampondb --local  --file=migrations/000N_*.sql  # 開発
+  npx wrangler d1 execute jampondb --remote --file=migrations/000N_*.sql  # 本番
+  ```
+- スキーマ変更時は worker.ts と同 PR / コミットで適用すること
+- 既存行を破壊しない `ALTER TABLE ... DEFAULT ...` か、互換性のある追加カラムを優先
 
 ## 選定の経緯
 

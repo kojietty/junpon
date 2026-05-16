@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { DIFFICULTY, type LaneKey } from '@/config/GameConfig';
+import { MODES, type GameMode, type LaneKey } from '@/config/GameConfig';
 import { Character } from '@/objects/Character';
 
 interface StackOptions {
   x: number;
   bottomY: number;
   visibleCount: number;
+  mode: GameMode;
   cellHeight?: number;
 }
 
@@ -17,6 +18,7 @@ export class CharacterStack {
   private readonly bottomY: number;
   private readonly visibleCount: number;
   private readonly cellHeight: number;
+  private readonly mode: GameMode;
   private characters: Character[] = [];
   private lastRefillAt = 0;
 
@@ -26,6 +28,7 @@ export class CharacterStack {
     this.bottomY = options.bottomY;
     this.visibleCount = options.visibleCount;
     this.cellHeight = options.cellHeight ?? DEFAULT_CELL_HEIGHT;
+    this.mode = options.mode;
   }
 
   fillInitial(): void {
@@ -74,9 +77,9 @@ export class CharacterStack {
   }
 
   private spawnAtTop(): void {
-    const lane = Math.floor(Math.random() * DIFFICULTY.laneCount) as LaneKey;
+    const lane = Math.floor(Math.random() * MODES[this.mode].count) as LaneKey;
     const topY = this.bottomY - this.cellHeight * this.visibleCount;
-    const character = new Character(this.scene, this.x, topY - this.cellHeight, lane);
+    const character = new Character(this.scene, this.x, topY - this.cellHeight, lane, this.mode);
     this.characters.push(character);
   }
 

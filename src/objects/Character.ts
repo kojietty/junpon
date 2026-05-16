@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, LANES, type LaneKey } from '@/config/GameConfig';
+import { COLORS, MODES, type GameMode, type LaneKey } from '@/config/GameConfig';
 
 export type { LaneKey };
 
@@ -10,11 +10,15 @@ const NOTE_R = 20;
 export class Character extends Phaser.GameObjects.Container {
   readonly lane: LaneKey;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, lane: LaneKey) {
+  constructor(scene: Phaser.Scene, x: number, y: number, lane: LaneKey, mode: GameMode) {
     super(scene, x, y);
     this.lane = lane;
 
-    const color = COLORS.lane[lane];
+    const modeCfg = MODES[mode];
+    // lane is guaranteed in-range for the active mode by the spawner
+    const colorIdx = modeCfg.colorIdx[lane] as number;
+    const keyLabel = modeCfg.keys[lane] as string;
+    const color = COLORS.lane[colorIdx];
 
     const bg = scene.add.graphics();
     bg.fillStyle(color, 0.95);
@@ -22,7 +26,6 @@ export class Character extends Phaser.GameObjects.Container {
     bg.lineStyle(4, 0xffffff, 0.65);
     bg.strokeRoundedRect(-NOTE_W / 2, -NOTE_H / 2, NOTE_W, NOTE_H, NOTE_R);
 
-    // Inner top highlight for glass effect
     const shine = scene.add.graphics();
     shine.fillStyle(0xffffff, 0.2);
     shine.fillRoundedRect(
@@ -34,7 +37,7 @@ export class Character extends Phaser.GameObjects.Container {
     );
 
     const label = scene.add
-      .text(0, 2, LANES.keys[lane], {
+      .text(0, 2, keyLabel, {
         fontFamily: 'Fredoka, system-ui, sans-serif',
         fontSize: '58px',
         fontStyle: 'bold',
