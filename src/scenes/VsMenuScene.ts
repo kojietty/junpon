@@ -130,17 +130,6 @@ export class VsMenuScene extends Phaser.Scene {
         </div>
       </div>
       <div style="margin-bottom:14px">
-        <div style="font-size:20px;margin-bottom:6px">定員 (最大10人)</div>
-        <div id="vs-max-row" style="display:flex;flex-wrap:wrap;gap:6px">
-          ${[2, 3, 4, 5, 6, 8, 10]
-            .map(
-              (n) =>
-                `<button data-max="${n}" class="vs-pill" style="flex:1;min-width:60px">${n}人</button>`,
-            )
-            .join('')}
-        </div>
-      </div>
-      <div style="margin-bottom:14px">
         <div style="font-size:20px;margin-bottom:6px">あなたの名前</div>
         <input id="vs-nickname" type="text" maxlength="12" placeholder="12文字以内"
           value="${RankingService.getLastNickname()}"
@@ -156,15 +145,10 @@ export class VsMenuScene extends Phaser.Scene {
     `;
 
     let selectedMode: GameMode = 4;
-    let selectedMax = 4;
     const refreshPills = () => {
       wrapper.querySelectorAll<HTMLButtonElement>('#vs-mode-row .vs-pill').forEach((b) => {
         const v = Number(b.dataset.mode);
         b.style.background = v === selectedMode ? '#ba68c8' : '#1f3527';
-      });
-      wrapper.querySelectorAll<HTMLButtonElement>('#vs-max-row .vs-pill').forEach((b) => {
-        const v = Number(b.dataset.max);
-        b.style.background = v === selectedMax ? '#ba68c8' : '#1f3527';
       });
     };
     refreshPills();
@@ -172,12 +156,6 @@ export class VsMenuScene extends Phaser.Scene {
     wrapper.querySelectorAll<HTMLButtonElement>('#vs-mode-row .vs-pill').forEach((b) => {
       b.addEventListener('click', () => {
         selectedMode = Number(b.dataset.mode) as GameMode;
-        refreshPills();
-      });
-    });
-    wrapper.querySelectorAll<HTMLButtonElement>('#vs-max-row .vs-pill').forEach((b) => {
-      b.addEventListener('click', () => {
-        selectedMax = Number(b.dataset.max);
         refreshPills();
       });
     });
@@ -194,7 +172,7 @@ export class VsMenuScene extends Phaser.Scene {
       }
       errEl.textContent = '作成中...';
       try {
-        const result = await VsService.createRoom(selectedMode, selectedMax, nickname);
+        const result = await VsService.createRoom(selectedMode, VS.maxPlayers, nickname);
         RankingService.saveNickname(nickname);
         this.goLobby('host', result, nickname);
       } catch (e) {
@@ -340,8 +318,17 @@ export class VsMenuScene extends Phaser.Scene {
       `;
       document.head.appendChild(style);
     }
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
+
+    // 全画面 backdrop で背後の Phaser ボタンへのクリックをブロック
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = `
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 9998;
+    `;
+
+    const panel = document.createElement('div');
+    panel.style.cssText = `
       position: fixed; left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       background: rgba(10,30,18,0.97);
@@ -354,15 +341,20 @@ export class VsMenuScene extends Phaser.Scene {
       min-width: 360px;
       max-width: 92vw;
     `;
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
-    this.overlay = overlay;
+    panel.appendChild(content);
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+    this.overlay = backdrop;
+
+    // Phaser の input も無効化して二重クリックを完全防止
+    this.input.enabled = false;
   }
 
   private removeOverlay(): void {
     if (this.overlay) {
       this.overlay.remove();
       this.overlay = null;
+      this.input.enabled = true;
     }
   }
 }
