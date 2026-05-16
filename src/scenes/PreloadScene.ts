@@ -14,7 +14,12 @@ export class PreloadScene extends Phaser.Scene {
 
     // Background gradient
     const bg = this.add.graphics();
-    bg.fillGradientStyle(COLORS.jungleDark, COLORS.jungleDark, COLORS.background, COLORS.background);
+    bg.fillGradientStyle(
+      COLORS.jungleDark,
+      COLORS.jungleDark,
+      COLORS.background,
+      COLORS.background,
+    );
     bg.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
 
     // Brand title

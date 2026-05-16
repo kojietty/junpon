@@ -28,13 +28,12 @@ export class Character extends Phaser.GameObjects.Container {
 
     const shine = scene.add.graphics();
     shine.fillStyle(0xffffff, 0.2);
-    shine.fillRoundedRect(
-      -NOTE_W / 2 + 6,
-      -NOTE_H / 2 + 6,
-      NOTE_W - 12,
-      26,
-      { tl: 12, tr: 12, bl: 0, br: 0 },
-    );
+    shine.fillRoundedRect(-NOTE_W / 2 + 6, -NOTE_H / 2 + 6, NOTE_W - 12, 26, {
+      tl: 12,
+      tr: 12,
+      bl: 0,
+      br: 0,
+    });
 
     const label = scene.add
       .text(0, 2, keyLabel, {

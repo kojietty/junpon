@@ -8,6 +8,8 @@ interface StackOptions {
   visibleCount: number;
   mode: GameMode;
   cellHeight?: number;
+  // VS モード時はシード済み PRNG を渡すことで全端末で同じノーツ列が出る。
+  rng?: () => number;
 }
 
 const DEFAULT_CELL_HEIGHT = 130;
@@ -19,6 +21,7 @@ export class CharacterStack {
   private readonly visibleCount: number;
   private readonly cellHeight: number;
   private readonly mode: GameMode;
+  private readonly rng: () => number;
   private characters: Character[] = [];
   private lastRefillAt = 0;
 
@@ -29,6 +32,7 @@ export class CharacterStack {
     this.visibleCount = options.visibleCount;
     this.cellHeight = options.cellHeight ?? DEFAULT_CELL_HEIGHT;
     this.mode = options.mode;
+    this.rng = options.rng ?? Math.random;
   }
 
   fillInitial(): void {
@@ -77,7 +81,7 @@ export class CharacterStack {
   }
 
   private spawnAtTop(): void {
-    const lane = Math.floor(Math.random() * MODES[this.mode].count) as LaneKey;
+    const lane = Math.floor(this.rng() * MODES[this.mode].count) as LaneKey;
     const topY = this.bottomY - this.cellHeight * this.visibleCount;
     const character = new Character(this.scene, this.x, topY - this.cellHeight, lane, this.mode);
     this.characters.push(character);

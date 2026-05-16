@@ -34,6 +34,17 @@ export const DIFFICULTY = {
 
 export const SESSION_DURATION_MS = 60_000;
 
+export const VS = {
+  pollIntervalMs: 3_000,
+  countdownOffsetMs: 5_000,
+  roomTtlMs: 10 * 60 * 1000,
+  resultTimeoutMs: 120_000,
+  maxPlayers: 10,
+  minPlayers: 2,
+  codeLength: 6,
+  codeChars: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789',
+} as const;
+
 export const STORAGE_KEYS = {
   highScore: (mode: GameMode) => `jungle-tap:highscore:${mode}key`,
   legacyHighScore: 'jungle-tap:highscore',

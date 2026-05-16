@@ -27,7 +27,9 @@ export class RankingScene extends Phaser.Scene {
   private headerContainer: Phaser.GameObjects.Container | null = null;
   private emptyText: Phaser.GameObjects.Text | null = null;
   private loadingText: Phaser.GameObjects.Text | null = null;
-  private tabButtons: Partial<Record<GameMode, { container: Phaser.GameObjects.Container; redraw: (active: boolean) => void }>> = {};
+  private tabButtons: Partial<
+    Record<GameMode, { container: Phaser.GameObjects.Container; redraw: (active: boolean) => void }>
+  > = {};
   private activeMode: GameMode = DEFAULT_MODE;
   private myScore?: number;
   private myNickname?: string;
@@ -47,9 +49,7 @@ export class RankingScene extends Phaser.Scene {
     this.myScore = data?.myScore;
     this.myNickname = data?.myNickname;
     this.activeMode =
-      data?.initialMode ??
-      parseMode(localStorage.getItem(STORAGE_KEYS.lastMode)) ??
-      DEFAULT_MODE;
+      data?.initialMode ?? parseMode(localStorage.getItem(STORAGE_KEYS.lastMode)) ?? DEFAULT_MODE;
 
     const cx = VIEWPORT.width / 2;
 
@@ -128,7 +128,10 @@ export class RankingScene extends Phaser.Scene {
     };
     redraw(false);
 
-    const hit = this.add.rectangle(0, 0, w, h, 0, 0).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    const hit = this.add
+      .rectangle(0, 0, w, h, 0, 0)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => this.switchTab(mode));
 
     const container = this.add.container(x, y, [bg, text, hit]);
