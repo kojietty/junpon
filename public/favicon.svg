@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#1f6f3a"/>
+  <rect width="64" height="64" rx="14" fill="url(#shine)" opacity="0.15"/>
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <text x="32" y="47" font-family="Arial Rounded MT Bold, Arial, sans-serif"
+        font-size="44" font-weight="bold" fill="#ffd54f"
+        text-anchor="middle">J</text>
+</svg>
