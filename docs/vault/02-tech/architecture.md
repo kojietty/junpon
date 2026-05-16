@@ -9,18 +9,24 @@ tags: [tech]
 
 ```
 BootScene → PreloadScene → TitleScene ⇄ GameScene → GameOverScene
-                                  ↕            ↑           │
-                              RankingScene     └───────────┘ (リトライ)
+                                ↕  ↘         ↑           │
+                                ↕    └── VsCountdownScene ←  VsLobbyScene ← VsMenuScene
+                                ↕                       (vs フラグで GameScene 経由 VsResultScene)
+                            RankingScene                └───────────┘ (リトライ)
 ```
 
 | Scene | 役割 |
 |-------|------|
 | `BootScene` | ローダ初期化、レガシー localStorage 移行 |
 | `PreloadScene` | 画像・音声の事前読込・進捗バー表示 |
-| `TitleScene` | タイトル表示・**モード選択 (2KEY/4KEY)** 待機 |
-| `GameScene` | ゲーム本編（[[../01-game-design/mechanics]]、`mode` を受け取る） |
-| `GameOverScene` | スコア・ハイスコア表示・リトライ・ランキング登録 |
+| `TitleScene` | タイトル表示・**モード選択 (2KEY/4KEY/VS)** 待機 |
+| `GameScene` | ゲーム本編（[[../01-game-design/mechanics]]、`mode` と任意の `vs` を受け取る） |
+| `GameOverScene` | ソロ時のスコア・ハイスコア表示・リトライ・ランキング登録 |
 | `RankingScene` | 2KEY/4KEY タブ切替式のサーバランキング表示 |
+| `VsMenuScene` | VS の入口。CREATE / JOIN |
+| `VsLobbyScene` | host: コード表示・START / guest: 参加・ホスト待ち |
+| `VsCountdownScene` | サーバ `startAt - offset` まで sleep → 3-2-1-GO |
+| `VsResultScene` | 結果ポーリング・順位表・WIN/DRAW/N位 |
 
 ## モード抽象化
 
@@ -82,6 +88,29 @@ INDEX idx_scores_mode_score (mode, score DESC)
 - POST `/api/scores` → body に `mode` 必須、`device_id` 単位で 30 秒のレート制限（モード横断グローバル）
 - migrations: `migrations/NNNN_*.sql`、`wrangler d1 execute jampondb --local|--remote --file=...` で適用
 
+### VS 用テーブル (`rooms` / `room_participants`)
+
+```sql
+rooms (code PK, mode, seed, max_players, host_token, host_device, start_at, created_at, expires_at)
+room_participants (code, slot, token, device, nickname, score, plays, joined_at, PRIMARY KEY (code, slot))
+```
+
+詳細は [[vs-protocol]] を参照。ライフサイクルが scores と全く違う (append-only vs 数分 TTL) ため別テーブル。lazy GC は確率 1/20 で `DELETE FROM rooms WHERE expires_at < now` を `batch()` 実行。
+
+### VS API (worker.ts)
+
+- `POST /api/rooms` ルーム作成 / `POST /api/rooms/:code/join` 参加 / `POST /api/rooms/:code/start` ホスト開始
+- `GET /api/rooms/:code` 状態取得 (ポーリング用、status を動的計算) / `POST /api/rooms/:code/score` スコア送信
+- 詳細は [[vs-protocol]]
+
+## VS の決定論ノーツ
+
+`src/systems/SeededRng.ts` の `mulberry32(seed)` を `CharacterStack` の `rng?: () => number` オプションに注入。
+
+- ソロ時は省略 → `Math.random` フォールバック (後方互換)
+- VS 時はサーバ生成の 32bit seed を全端末で共有 → 全員同一の lane 列
+- `tickRefill` は時刻ベースで rng を呼ばないため、フレームレート / 操作タイミング差に依存しない
+
 ## チューニング表
 
 | パラメータ | 値 | メモ |
@@ -92,6 +121,11 @@ INDEX idx_scores_mode_score (mode, score DESC)
 | `MODES[4].count` | 4 | S/D/J/K |
 | `stackVisibleCount` | 6 | 画面上のノーツ数 |
 | `SESSION_DURATION_MS` | 60000 | 1 セッション長 |
+| `VS.pollIntervalMs` | 3000 | ロビー / 結果ポーリング間隔 |
+| `VS.countdownOffsetMs` | 5000 | START 押下から実プレイ開始までの余裕 |
+| `VS.roomTtlMs` | 600000 | ルーム自動失効 (10 分) |
+| `VS.resultTimeoutMs` | 120000 | 全員スコア揃わなくても DNF で打ち切るまで |
+| `VS.maxPlayers` | 10 | ホストが選べる上限 |
 
 ## 関連
 

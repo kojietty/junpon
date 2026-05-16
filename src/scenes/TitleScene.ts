@@ -108,19 +108,18 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: desc, alpha: 0.85, delay: 150, duration: 400 });
     this.tweens.add({ targets: hiText, alpha: 1, delay: 250, duration: 400 });
 
-    const start2Btn = this.makeButton(
-      cx,
-      VIEWPORT.height - 410,
-      '2KEY START',
-      COLORS.lane[1],
-      () => this.beginGame(2),
+    const start2Btn = this.makeButton(cx, VIEWPORT.height - 510, '2KEY START', COLORS.lane[1], () =>
+      this.beginGame(2),
     );
-    const start4Btn = this.makeButton(
+    const start4Btn = this.makeButton(cx, VIEWPORT.height - 410, '4KEY START', COLORS.lane[2], () =>
+      this.beginGame(4),
+    );
+    const vsBtn = this.makeButton(
       cx,
       VIEWPORT.height - 310,
-      '4KEY START',
-      COLORS.lane[2],
-      () => this.beginGame(4),
+      'VS PLAY (最大10人)',
+      COLORS.lane[3],
+      () => this.goVs(),
     );
     const rankingBtn = this.makeButton(cx, VIEWPORT.height - 210, 'RANKING', 0x607d8b, () => {
       this.removeVolumeOverlay();
@@ -130,7 +129,7 @@ export class TitleScene extends Phaser.Scene {
       );
     });
 
-    [start2Btn, start4Btn, rankingBtn].forEach((btn, i) => {
+    [start2Btn, start4Btn, vsBtn, rankingBtn].forEach((btn, i) => {
       btn.setAlpha(0).setScale(0.88);
       this.tweens.add({
         targets: btn,
@@ -259,6 +258,12 @@ export class TitleScene extends Phaser.Scene {
     this.removeVolumeOverlay();
     this.cameras.main.fadeOut(180, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene', { mode }));
+  }
+
+  private goVs(): void {
+    this.removeVolumeOverlay();
+    this.cameras.main.fadeOut(180, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('VsMenuScene'));
   }
 
   private getHighScore(mode: GameMode): number {

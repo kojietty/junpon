@@ -73,11 +73,32 @@ tags: [tasks]
 - [x] D1 migration を本番 (remote) に適用済み (`wrangler d1 execute jampondb --remote --file=migrations/0001_add_mode_column.sql`)
 - [ ] ブラウザ実機で動作確認（プラン §動作確認手順）
 
+## Phase 2.7': VS モード追加 — 2026-05-16
+
+- [x] `migrations/0002_create_rooms.sql` (rooms + room_participants)
+- [x] `worker.ts` に `/api/rooms` 系 5 ルート追加 (create/join/start/get/score)
+- [x] `src/systems/SeededRng.ts` (mulberry32)
+- [x] `CharacterStack` に `rng?` オプション注入 (ソロは Math.random フォールバック)
+- [x] `src/services/VsService.ts` クライアント (createRoom / joinRoom / getRoom / startRoom / submitScore)
+- [x] `VsMenuScene` (CREATE / JOIN)
+- [x] `VsLobbyScene` (host: コード/START / guest: 参加待ち、TTL 表示)
+- [x] `VsCountdownScene` (サーバ startAt 同期 → 3-2-1-GO)
+- [x] `GameScene` を vs データ受け取り対応 (rng 注入 / 即 startGame / pause リタイア化 / VsResultScene 遷移)
+- [x] `VsResultScene` (順位表、同点同順位、WIN/DRAW/N位、DNF 処理)
+- [x] `TitleScene` に "VS PLAY (最大10人)" ボタン追加
+- [x] `src/config/GameConfig.ts` に `VS` 定数
+- [x] `src/main.ts` に Vs* シーン 4 つ追加
+- [x] vault 更新 ([[../04-logs/2026-05-16]] / [[../01-game-design/vs-mode]] / [[../02-tech/vs-protocol]])
+- [ ] D1 migration 適用 (`wrangler d1 execute jampondb --local --file=migrations/0002_create_rooms.sql` → 本番は `--remote`)
+- [ ] ブラウザ複数タブでの動作確認 (CREATE → JOIN → START → 同シードノーツ → 結果)
+
 ## Phase 5: オプション
 
 - [ ] 追加モード (3キー / 5キー — `MODES` テーブルへのエントリ追加だけで拡張可能になった)
 - [ ] ボーナス用レアノーツ
 - [ ] 終了直前のラストスパート演出
+- [ ] VS モードでブラウザリロード復帰 (`localStorage` にアクティブ {code, token} 保存)
+- [ ] VS の戦績集計 (ソロランキングとは別領域)
 
 ## 関連
 

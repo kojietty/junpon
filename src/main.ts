@@ -6,8 +6,23 @@ import { TitleScene } from '@/scenes/TitleScene';
 import { GameScene } from '@/scenes/GameScene';
 import { GameOverScene } from '@/scenes/GameOverScene';
 import { RankingScene } from '@/scenes/RankingScene';
+import { VsMenuScene } from '@/scenes/VsMenuScene';
+import { VsLobbyScene } from '@/scenes/VsLobbyScene';
+import { VsCountdownScene } from '@/scenes/VsCountdownScene';
+import { VsResultScene } from '@/scenes/VsResultScene';
 
 new Phaser.Game({
   ...gameConfig,
-  scene: [BootScene, PreloadScene, TitleScene, GameScene, GameOverScene, RankingScene],
+  scene: [
+    BootScene,
+    PreloadScene,
+    TitleScene,
+    GameScene,
+    GameOverScene,
+    RankingScene,
+    VsMenuScene,
+    VsLobbyScene,
+    VsCountdownScene,
+    VsResultScene,
+  ],
 });

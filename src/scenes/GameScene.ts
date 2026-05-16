@@ -12,10 +12,24 @@ import {
 import { CharacterStack } from '@/objects/CharacterStack';
 import { InputController } from '@/systems/InputController';
 import { ScoreManager } from '@/systems/ScoreManager';
+import { mulberry32 } from '@/systems/SeededRng';
 import { SoundSettings } from '@/systems/SoundSettings';
+import type { ParticipantInfo } from '@/services/VsService';
+
+export interface VsContext {
+  code: string;
+  token: string;
+  slot: number;
+  seed: number;
+  maxPlayers: number;
+  role: 'host' | 'guest';
+  myNickname: string;
+  participants: ParticipantInfo[];
+}
 
 interface GameSceneData {
   mode?: GameMode;
+  vs?: VsContext;
 }
 
 const FONT = 'Fredoka, system-ui, sans-serif';
@@ -24,6 +38,8 @@ const toHex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 export class GameScene extends Phaser.Scene {
   private mode: GameMode = DEFAULT_MODE;
+  private vs: VsContext | null = null;
+  private plays = 0;
   private stack!: CharacterStack;
   private scoreManager!: ScoreManager;
   private scoreText!: Phaser.GameObjects.Text;
@@ -45,6 +61,8 @@ export class GameScene extends Phaser.Scene {
 
   create(data: GameSceneData): void {
     this.mode = data?.mode ?? DEFAULT_MODE;
+    this.vs = data?.vs ?? null;
+    this.plays = 0;
     this.isPaused = false;
     this.emitters = {};
     this.keyCaps = [];
@@ -59,6 +77,7 @@ export class GameScene extends Phaser.Scene {
       bottomY: VIEWPORT.height - 300,
       visibleCount: DIFFICULTY.stackVisibleCount,
       mode: this.mode,
+      ...(this.vs ? { rng: mulberry32(this.vs.seed) } : {}),
     });
     this.stack.fillInitial();
 
@@ -110,7 +129,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     this.createPauseMenu();
-    this.startCountdown();
+    // VS は VsCountdownScene 側でカウントダウンするのでここでは省略して即開始
+    if (this.vs) {
+      this.startGame();
+    } else {
+      this.startCountdown();
+    }
     this.cameras.main.fadeIn(220, 0, 0, 0);
   }
 
@@ -215,12 +239,7 @@ export class GameScene extends Phaser.Scene {
 
   private drawBackground(): void {
     const g = this.add.graphics();
-    g.fillGradientStyle(
-      COLORS.jungleDark,
-      COLORS.jungleDark,
-      COLORS.background,
-      COLORS.background,
-    );
+    g.fillGradientStyle(COLORS.jungleDark, COLORS.jungleDark, COLORS.background, COLORS.background);
     g.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
   }
 
@@ -242,7 +261,12 @@ export class GameScene extends Phaser.Scene {
       capG.lineStyle(3, 0xffffff, 0.6);
       capG.strokeRoundedRect(-capW / 2, -capH / 2, capW, capH, 14);
       capG.fillStyle(0xffffff, 0.18);
-      capG.fillRoundedRect(-capW / 2 + 4, -capH / 2 + 4, capW - 8, 16, { tl: 8, tr: 8, bl: 0, br: 0 });
+      capG.fillRoundedRect(-capW / 2 + 4, -capH / 2 + 4, capW - 8, 16, {
+        tl: 8,
+        tr: 8,
+        bl: 0,
+        br: 0,
+      });
 
       const keyText = this.add
         .text(0, 0, modeCfg.keys[i], {
@@ -281,21 +305,25 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setShadow(0, 0, '#ffd54f', 12, false, true);
 
-    const btnRetry = this.makePauseBtn(cx, panelY + 168, 'やりなおす', COLORS.lane[1], () => {
-      this.removeVolumeOverlay();
-      this.bgm.stop();
-      this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () =>
-        this.scene.start('GameScene', { mode: this.mode }),
-      );
-    });
+    const btnRetry = this.vs
+      ? this.makePauseBtn(cx, panelY + 168, 'リタイア', COLORS.miss, () => this.retireFromVs())
+      : this.makePauseBtn(cx, panelY + 168, 'やりなおす', COLORS.lane[1], () => {
+          this.removeVolumeOverlay();
+          this.bgm.stop();
+          this.cameras.main.fadeOut(180, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () =>
+            this.scene.start('GameScene', { mode: this.mode }),
+          );
+        });
 
-    const btnTitle = this.makePauseBtn(cx, panelY + 268, 'タイトルに戻る', 0x607d8b, () => {
-      this.removeVolumeOverlay();
-      this.bgm.stop();
-      this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
-    });
+    const btnTitle = this.vs
+      ? this.makePauseBtn(cx, panelY + 268, '対戦から離脱', 0x607d8b, () => this.retireFromVs())
+      : this.makePauseBtn(cx, panelY + 268, 'タイトルに戻る', 0x607d8b, () => {
+          this.removeVolumeOverlay();
+          this.bgm.stop();
+          this.cameras.main.fadeOut(180, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
+        });
 
     const btnVolume = this.makePauseBtn(cx, panelY + 368, '音量設定', COLORS.lane[2], () => {
       this.toggleVolumeOverlay();
@@ -436,6 +464,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isPaused) return;
     const bottom = this.stack.peekBottom();
     if (bottom === null) return;
+    this.plays += 1;
 
     // Key cap press animation (always)
     const cap = this.keyCaps[lane];
@@ -648,7 +677,43 @@ export class GameScene extends Phaser.Scene {
     this.bgm.stop();
     this.cameras.main.fadeOut(180, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameOverScene', { score: this.scoreManager.score, mode: this.mode });
+      if (this.vs) {
+        this.scene.start('VsResultScene', {
+          code: this.vs.code,
+          token: this.vs.token,
+          slot: this.vs.slot,
+          mode: this.mode,
+          maxPlayers: this.vs.maxPlayers,
+          myNickname: this.vs.myNickname,
+          myScore: this.scoreManager.score,
+          plays: this.plays,
+          retired: false,
+        });
+      } else {
+        this.scene.start('GameOverScene', { score: this.scoreManager.score, mode: this.mode });
+      }
+    });
+  }
+
+  private retireFromVs(): void {
+    if (!this.vs) return;
+    this.removeVolumeOverlay();
+    this.bgm.stop();
+    if (this.sessionTimer) this.sessionTimer.remove();
+    this.cameras.main.fadeOut(180, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      if (!this.vs) return;
+      this.scene.start('VsResultScene', {
+        code: this.vs.code,
+        token: this.vs.token,
+        slot: this.vs.slot,
+        mode: this.mode,
+        maxPlayers: this.vs.maxPlayers,
+        myNickname: this.vs.myNickname,
+        myScore: 0,
+        plays: this.plays,
+        retired: true,
+      });
     });
   }
 

@@ -118,9 +118,15 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // Buttons — staggered entrance
-    const rankingBtn = this.makeButton(cx, VIEWPORT.height - 500, 'ランキングに登録', COLORS.lane[3], () => {
-      this.showNicknameOverlay(score);
-    });
+    const rankingBtn = this.makeButton(
+      cx,
+      VIEWPORT.height - 500,
+      'ランキングに登録',
+      COLORS.lane[3],
+      () => {
+        this.showNicknameOverlay(score);
+      },
+    );
     const retryBtn = this.makeButton(cx, VIEWPORT.height - 378, 'RETRY', COLORS.lane[2], () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () =>
@@ -280,7 +286,10 @@ export class GameOverScene extends Phaser.Scene {
 
     overlay.querySelector('#btn-submit')!.addEventListener('click', async () => {
       const nickname = input.value.trim();
-      if (!nickname) { errorEl.textContent = '名前を入力してください'; return; }
+      if (!nickname) {
+        errorEl.textContent = '名前を入力してください';
+        return;
+      }
       errorEl.textContent = '送信中...';
       try {
         await RankingService.submit(nickname, score, this.mode);
@@ -292,7 +301,8 @@ export class GameOverScene extends Phaser.Scene {
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        errorEl.textContent = msg === '429' ? '連続送信はできません' : '送信失敗。再試行してください';
+        errorEl.textContent =
+          msg === '429' ? '連続送信はできません' : '送信失敗。再試行してください';
       }
     });
 

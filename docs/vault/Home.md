@@ -11,12 +11,14 @@ title: Home
 - [[01-game-design/overview|概要]] — 何を作るか／コアフィクション
 - [[01-game-design/mechanics|メカニクス]] — 入力・スタック・判定の仕様
 - [[01-game-design/difficulty|難易度カーブ]] — 速度上昇のパラメータ
+- [[01-game-design/vs-mode|VS モード]] — 最大10人ルームコード対戦（準同期）
 - [[01-game-design/reference-original|元ゲーム観察メモ]] — JUNGLE PANG の調査結果
 
 ## 🛠 技術
 
 - [[02-tech/stack|採用スタック]] — Phaser 3 / Vite / TypeScript
 - [[02-tech/architecture|アーキテクチャ]] — Scene 構成・データフロー
+- [[02-tech/vs-protocol|VS プロトコル]] — Workers + D1 ベースの対戦 API
 - [[02-tech/conventions|コーディング規約]]
 
 ## ✅ タスク
@@ -26,6 +28,7 @@ title: Home
 
 ## 📝 作業ログ
 
+- [[04-logs/2026-05-16|2026-05-16 UI 刷新 / 2 キーモード / VS モード]]
 - [[04-logs/2026-05-15|2026-05-15 4キー転向 MVP]]
 - [[04-logs/2026-05-04-kickoff|2026-05-04 キックオフ]]
 
