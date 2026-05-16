@@ -8,6 +8,7 @@ interface RankingData {
 }
 
 const FONT = 'Fredoka, system-ui, sans-serif';
+const MEDAL_COLORS = [0xffd700, 0xc8c8c8, 0xcd7f32] as const;
 
 export class RankingScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +16,8 @@ export class RankingScene extends Phaser.Scene {
   }
 
   async create(data: RankingData): Promise<void> {
+    this.cameras.main.fadeIn(220, 0, 0, 0);
+
     const cx = VIEWPORT.width / 2;
 
     const g = this.add.graphics();
@@ -28,8 +31,10 @@ export class RankingScene extends Phaser.Scene {
         fontStyle: 'bold',
         color: COLORS.textAccent,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setShadow(0, 0, '#ffd54f', 16, false, true);
 
+    // Loading indicator with pulse
     const loadingText = this.add
       .text(cx, VIEWPORT.height / 2, '読み込み中...', {
         fontFamily: FONT,
@@ -38,9 +43,18 @@ export class RankingScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.tweens.add({
+      targets: loadingText,
+      alpha: 0.3,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
     const rawEntries = await RankingService.fetchTop();
     const seenNames = new Set<string>();
-    const entries = rawEntries.filter(entry => {
+    const entries = rawEntries.filter((entry) => {
       if (seenNames.has(entry.nickname)) return false;
       seenNames.add(entry.nickname);
       return true;
@@ -60,10 +74,14 @@ export class RankingScene extends Phaser.Scene {
     }
 
     this.makeButton(cx, VIEWPORT.height - 110, 'タイトルに戻る', () => {
-      this.scene.start('TitleScene');
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
     });
 
-    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TitleScene'));
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
+    });
   }
 
   private drawList(
@@ -71,75 +89,153 @@ export class RankingScene extends Phaser.Scene {
     myScore: number | undefined,
     myNickname: string | undefined,
   ): void {
-    const startY = 170;
-    const rowH = 72;
+    const startY = 162;
+    const rowH = 70;
     const show = Math.min(entries.length, 13);
 
-    // header
+    // Header card
     const headerG = this.add.graphics();
-    headerG.fillStyle(0x000000, 0.3);
-    headerG.fillRect(20, startY - 8, VIEWPORT.width - 40, rowH - 8);
+    headerG.fillStyle(0x000000, 0.45);
+    headerG.fillRoundedRect(16, startY, VIEWPORT.width - 32, rowH - 6, 10);
 
-    this.add.text(60, startY + 8, '#', { fontFamily: FONT, fontSize: '28px', color: '#aaa' });
-    this.add.text(120, startY + 8, 'NAME', { fontFamily: FONT, fontSize: '28px', color: '#aaa' });
     this.add
-      .text(VIEWPORT.width - 60, startY + 8, 'SCORE', {
+      .text(50, startY + rowH / 2, '#', {
         fontFamily: FONT,
-        fontSize: '28px',
-        color: '#aaa',
+        fontSize: '26px',
+        color: '#888888',
       })
-      .setOrigin(1, 0);
+      .setOrigin(0.5);
+    this.add
+      .text(108, startY + rowH / 2, 'NAME', {
+        fontFamily: FONT,
+        fontSize: '26px',
+        color: '#888888',
+      })
+      .setOrigin(0, 0.5);
+    this.add
+      .text(VIEWPORT.width - 52, startY + rowH / 2, 'SCORE', {
+        fontFamily: FONT,
+        fontSize: '26px',
+        color: '#888888',
+      })
+      .setOrigin(1, 0.5);
 
     for (let i = 0; i < show; i++) {
       const entry = entries[i];
-      const y = startY + rowH + i * rowH;
+      const targetY = startY + rowH + i * rowH;
       const isMe = entry.score === myScore && entry.nickname === myNickname;
 
-      if (isMe) {
-        const hl = this.add.graphics();
-        hl.fillStyle(COLORS.lane[2], 0.25);
-        hl.fillRoundedRect(20, y - 4, VIEWPORT.width - 40, rowH - 10, 8);
+      // Row container — starts 24px below, slides up into position
+      const row = this.add.container(0, targetY + 24);
+      row.setAlpha(0);
+
+      // Row background
+      const rowBg = this.add.graphics();
+      const bgColor = isMe ? COLORS.lane[2] : 0x000000;
+      const bgAlpha = isMe ? 0.28 : i % 2 === 0 ? 0.2 : 0.12;
+      rowBg.fillStyle(bgColor, bgAlpha);
+      rowBg.fillRoundedRect(16, 2, VIEWPORT.width - 32, rowH - 6, 8);
+      row.add(rowBg);
+
+      // Medal badge for top 3
+      if (i < 3) {
+        const medalG = this.add.graphics();
+        medalG.fillStyle(MEDAL_COLORS[i], 0.95);
+        medalG.fillCircle(50, rowH / 2 - 2, 18);
+        medalG.lineStyle(2, 0xffffff, 0.3);
+        medalG.strokeCircle(50, rowH / 2 - 2, 18);
+        row.add(medalG);
       }
 
-      const rankColor = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : COLORS.textPrimary;
-      const nameColor = isMe ? COLORS.textAccent : COLORS.textPrimary;
-
-      this.add.text(60, y + 4, `${i + 1}`, {
-        fontFamily: FONT,
-        fontSize: '34px',
-        fontStyle: 'bold',
-        color: rankColor,
-      });
-      this.add.text(120, y + 4, entry.nickname, {
-        fontFamily: FONT,
-        fontSize: '34px',
-        color: nameColor,
-      });
-      this.add
-        .text(VIEWPORT.width - 60, y + 4, String(entry.score), {
+      // Rank number
+      const rankText = this.add
+        .text(50, rowH / 2 - 2, `${i + 1}`, {
           fontFamily: FONT,
-          fontSize: '34px',
+          fontSize: '28px',
+          fontStyle: 'bold',
+          color: i < 3 ? '#111111' : COLORS.textPrimary,
+        })
+        .setOrigin(0.5);
+      row.add(rankText);
+
+      // Name
+      const nameColor = isMe ? COLORS.textAccent : COLORS.textPrimary;
+      const nameText = this.add
+        .text(108, rowH / 2 - 2, entry.nickname, {
+          fontFamily: FONT,
+          fontSize: '32px',
+          color: nameColor,
+        })
+        .setOrigin(0, 0.5);
+      row.add(nameText);
+
+      // Score
+      const scoreText = this.add
+        .text(VIEWPORT.width - 52, rowH / 2 - 2, String(entry.score), {
+          fontFamily: FONT,
+          fontSize: '32px',
           fontStyle: 'bold',
           color: nameColor,
         })
-        .setOrigin(1, 0);
+        .setOrigin(1, 0.5);
+      row.add(scoreText);
+
+      // Stagger entrance: slide up + fade in
+      this.tweens.add({
+        targets: row,
+        y: targetY,
+        alpha: 1,
+        delay: i * 55,
+        duration: 270,
+        ease: 'Quad.easeOut',
+      });
     }
   }
 
-  private makeButton(x: number, y: number, label: string, onClick: () => void): void {
+  private makeButton(
+    x: number,
+    y: number,
+    label: string,
+    onClick: () => void,
+  ): Phaser.GameObjects.Container {
     const w = 460;
     const h = 84;
-    const bg = this.add.graphics();
-    bg.fillStyle(0x607d8b, 0.9);
-    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 18);
 
-    this.add
-      .text(x, y, label, { fontFamily: FONT, fontSize: '46px', fontStyle: 'bold', color: '#fff' })
+    const bg = this.add.graphics();
+    const drawBg = (alpha: number) => {
+      bg.clear();
+      bg.fillStyle(0x607d8b, alpha);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
+      bg.lineStyle(2, 0xffffff, 0.2);
+      bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
+      bg.fillStyle(0xffffff, 0.1);
+      bg.fillRoundedRect(-w / 2 + 5, -h / 2 + 5, w - 10, 18, { tl: 12, tr: 12, bl: 0, br: 0 });
+    };
+    drawBg(0.9);
+
+    const text = this.add
+      .text(0, 0, label, {
+        fontFamily: FONT,
+        fontSize: '46px',
+        fontStyle: 'bold',
+        color: '#fff',
+      })
       .setOrigin(0.5);
 
-    const hit = this.add.rectangle(x, y, w, h, 0, 0).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => bg.setAlpha(0.65));
-    hit.on('pointerout', () => bg.setAlpha(1));
+    const container = this.add.container(x, y);
+    const hit = this.add.rectangle(0, 0, w, h, 0, 0).setInteractive({ useHandCursor: true });
+    container.add([bg, text, hit]);
+
+    hit.on('pointerover', () => {
+      drawBg(1.0);
+      this.tweens.add({ targets: container, scale: 1.05, duration: 120, ease: 'Back.easeOut' });
+    });
+    hit.on('pointerout', () => {
+      drawBg(0.9);
+      this.tweens.add({ targets: container, scale: 1.0, duration: 120 });
+    });
     hit.on('pointerdown', onClick);
+
+    return container;
   }
 }

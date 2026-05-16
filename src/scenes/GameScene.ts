@@ -14,6 +14,8 @@ import { SoundSettings } from '@/systems/SoundSettings';
 
 const FONT = 'Fredoka, system-ui, sans-serif';
 
+const toHex = (n: number) => '#' + n.toString(16).padStart(6, '0');
+
 export class GameScene extends Phaser.Scene {
   private stack!: CharacterStack;
   private scoreManager!: ScoreManager;
@@ -26,7 +28,9 @@ export class GameScene extends Phaser.Scene {
   private volumeOverlay: HTMLDivElement | null = null;
   private isPaused = false;
   private isCountingDown = false;
-  private emitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private emitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  private keyCaps: Phaser.GameObjects.Container[] = [];
+  private lastTimerSecs = 61;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -34,9 +38,13 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.isPaused = false;
+    this.emitters = [];
+    this.keyCaps = [];
+    this.lastTimerSecs = 61;
+
     this.drawBackground();
+    this.createParticleEmitters();
     this.drawLaneZones();
-    this.createParticleEmitter();
 
     this.stack = new CharacterStack(this, {
       x: VIEWPORT.width / 2,
@@ -47,17 +55,32 @@ export class GameScene extends Phaser.Scene {
 
     this.scoreManager = new ScoreManager();
 
-    this.scoreText = this.add
-      .text(VIEWPORT.width / 2, 80, 'SCORE 0', {
+    // HUD background panel
+    const hudG = this.add.graphics();
+    hudG.fillStyle(0x000000, 0.42);
+    hudG.fillRoundedRect(16, 14, VIEWPORT.width - 32, 208, 20);
+
+    // ESC hint
+    this.add
+      .text(44, 38, '≡ ESC', {
         fontFamily: FONT,
-        fontSize: '56px',
+        fontSize: '28px',
+        color: '#ffffff',
+        alpha: 0.4,
+      } as Phaser.Types.GameObjects.Text.TextStyle)
+      .setOrigin(0, 0);
+
+    this.scoreText = this.add
+      .text(VIEWPORT.width / 2, 90, 'SCORE 0', {
+        fontFamily: FONT,
+        fontSize: '58px',
         fontStyle: 'bold',
         color: COLORS.textPrimary,
       })
       .setOrigin(0.5);
 
     this.comboText = this.add
-      .text(VIEWPORT.width / 2, 155, '', {
+      .text(VIEWPORT.width / 2, 165, '', {
         fontFamily: FONT,
         fontSize: '40px',
         color: COLORS.textAccent,
@@ -66,7 +89,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(5);
 
     this.timerText = this.add
-      .text(VIEWPORT.width - 28, 28, '60', {
+      .text(VIEWPORT.width - 40, 38, '60', {
         fontFamily: FONT,
         fontSize: '52px',
         fontStyle: 'bold',
@@ -74,45 +97,45 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
-    // ESC hint
-    this.add
-      .text(28, 28, '≡ ESC', {
-        fontFamily: FONT,
-        fontSize: '32px',
-        color: '#ffffff',
-        alpha: 0.5,
-      } as Phaser.Types.GameObjects.Text.TextStyle)
-      .setOrigin(0, 0);
-
     new InputController(this, (lane) => this.onInput(lane));
-
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     this.createPauseMenu();
-
     this.startCountdown();
+    this.cameras.main.fadeIn(220, 0, 0, 0);
   }
 
   private startCountdown(): void {
     this.isCountingDown = true;
     this.isPaused = true;
-    
+
     const cx = VIEWPORT.width / 2;
-    const cy = VIEWPORT.height / 2;
-    const countText = this.add.text(cx, cy - 50, '3', {
-      fontFamily: FONT,
-      fontSize: '180px',
-      fontStyle: 'bold',
-      color: COLORS.textAccent,
-    }).setOrigin(0.5).setDepth(100);
+    const cy = VIEWPORT.height / 2 - 60;
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.58);
+    overlay.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
+    overlay.setDepth(99);
+
+    const countText = this.add
+      .text(cx, cy, '3', {
+        fontFamily: FONT,
+        fontSize: '200px',
+        fontStyle: 'bold',
+        color: COLORS.textAccent,
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setShadow(0, 0, '#ffd54f', 28, true, true);
 
     let count = 3;
     const tick = () => {
+      countText.setScale(1.7).setAlpha(0.5);
       this.tweens.add({
         targets: countText,
-        scale: { from: 1.5, to: 1 },
-        alpha: { from: 0.3, to: 1 },
-        duration: 300,
+        scale: 1,
+        alpha: 1,
+        duration: 360,
         ease: 'Back.easeOut',
       });
     };
@@ -129,12 +152,21 @@ export class GameScene extends Phaser.Scene {
           tick();
         } else if (count === 0) {
           countText.setText('GO!');
+          countText.setColor('#64b5f6').setShadow(0, 0, '#64b5f6', 28, true, true);
           tick();
           this.startGame();
         } else {
-          countText.destroy();
+          this.tweens.add({
+            targets: [countText, overlay],
+            alpha: 0,
+            duration: 320,
+            onComplete: () => {
+              countText.destroy();
+              overlay.destroy();
+            },
+          });
         }
-      }
+      },
     });
   }
 
@@ -146,21 +178,26 @@ export class GameScene extends Phaser.Scene {
     this.bgm.play();
   }
 
-  private createParticleEmitter(): void {
-    const g = this.make.graphics({});
-    g.fillStyle(0xffffff);
-    g.fillCircle(5, 5, 5);
-    g.generateTexture('particle-dot', 10, 10);
-    g.destroy();
+  private createParticleEmitters(): void {
+    COLORS.lane.forEach((color, i) => {
+      const key = `particle-lane-${i}`;
+      const g = this.make.graphics({});
+      g.fillStyle(color);
+      g.fillCircle(6, 6, 6);
+      g.generateTexture(key, 12, 12);
+      g.destroy();
 
-    this.emitter = this.add.particles(0, 0, 'particle-dot', {
-      speed: { min: 120, max: 260 },
-      scale: { start: 0.6, end: 0 },
-      lifespan: 380,
-      quantity: 10,
-      emitting: false,
+      const emitter = this.add.particles(0, 0, key, {
+        speed: { min: 100, max: 310 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 0.9, end: 0 },
+        lifespan: 430,
+        quantity: 14,
+        emitting: false,
+      });
+      emitter.setDepth(10);
+      this.emitters.push(emitter);
     });
-    this.emitter.setDepth(10);
   }
 
   private drawBackground(): void {
@@ -180,28 +217,29 @@ export class GameScene extends Phaser.Scene {
     const capH = 72;
     const capY = VIEWPORT.height - 52;
 
-    for (let i = 0; i < LANES.count; i += 1) {
+    for (let i = 0; i < LANES.count; i++) {
       const color = COLORS.lane[i];
       const cx = i * laneWidth + laneWidth / 2;
 
-      // horizontal hit-line
-      // this.add.rectangle(cx, VIEWPORT.height - capH - 10, laneWidth - 4, 4, color, 1);
-
-      // key cap badge
       const capG = this.add.graphics();
       capG.fillStyle(color, 0.92);
-      capG.fillRoundedRect(cx - capW / 2, capY - capH / 2, capW, capH, 14);
+      capG.fillRoundedRect(-capW / 2, -capH / 2, capW, capH, 14);
       capG.lineStyle(3, 0xffffff, 0.6);
-      capG.strokeRoundedRect(cx - capW / 2, capY - capH / 2, capW, capH, 14);
+      capG.strokeRoundedRect(-capW / 2, -capH / 2, capW, capH, 14);
+      capG.fillStyle(0xffffff, 0.18);
+      capG.fillRoundedRect(-capW / 2 + 4, -capH / 2 + 4, capW - 8, 16, { tl: 8, tr: 8, bl: 0, br: 0 });
 
-      this.add
-        .text(cx, capY, LANES.keys[i], {
+      const keyText = this.add
+        .text(0, 0, LANES.keys[i], {
           fontFamily: FONT,
           fontSize: '52px',
           fontStyle: 'bold',
           color: '#ffffff',
         })
         .setOrigin(0.5);
+
+      const container = this.add.container(cx, capY, [capG, keyText]);
+      this.keyCaps.push(container);
     }
   }
 
@@ -213,41 +251,44 @@ export class GameScene extends Phaser.Scene {
     const panelY = 240;
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x000000, 0.82);
+    bg.fillStyle(0x000000, 0.88);
     bg.fillRoundedRect(panelX, panelY, panelW, panelH, 24);
-    bg.lineStyle(2, 0xffffff, 0.15);
+    bg.lineStyle(2, 0xffffff, 0.12);
     bg.strokeRoundedRect(panelX, panelY, panelW, panelH, 24);
 
     const title = this.add
-      .text(cx, panelY + 52, 'PAUSE', {
+      .text(cx, panelY + 56, 'PAUSE', {
         fontFamily: FONT,
-        fontSize: '60px',
+        fontSize: '64px',
         fontStyle: 'bold',
         color: COLORS.textAccent,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setShadow(0, 0, '#ffd54f', 12, false, true);
 
-    const btnRetry = this.makePauseBtn(cx, panelY + 160, 'やりなおす', COLORS.lane[1], () => {
+    const btnRetry = this.makePauseBtn(cx, panelY + 168, 'やりなおす', COLORS.lane[1], () => {
       this.removeVolumeOverlay();
       this.bgm.stop();
-      this.scene.start('GameScene');
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
     });
 
-    const btnTitle = this.makePauseBtn(cx, panelY + 260, 'タイトルに戻る', 0x607d8b, () => {
+    const btnTitle = this.makePauseBtn(cx, panelY + 268, 'タイトルに戻る', 0x607d8b, () => {
       this.removeVolumeOverlay();
       this.bgm.stop();
-      this.scene.start('TitleScene');
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
     });
 
-    const btnVolume = this.makePauseBtn(cx, panelY + 360, '音量設定', COLORS.lane[2], () => {
+    const btnVolume = this.makePauseBtn(cx, panelY + 368, '音量設定', COLORS.lane[2], () => {
       this.toggleVolumeOverlay();
     });
 
     const closeHint = this.add
-      .text(cx, panelY + panelH - 36, 'ESC で閉じる', {
+      .text(cx, panelY + panelH - 38, 'ESC で閉じる', {
         fontFamily: FONT,
         fontSize: '26px',
-        color: '#aaaaaa',
+        color: '#777777',
       })
       .setOrigin(0.5);
 
@@ -287,7 +328,7 @@ export class GameScene extends Phaser.Scene {
     const hitArea = this.add
       .rectangle(x, y, w, h, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
-    hitArea.on('pointerover', () => bg.setAlpha(0.7));
+    hitArea.on('pointerover', () => bg.setAlpha(0.65));
     hitArea.on('pointerout', () => bg.setAlpha(1));
     hitArea.on('pointerdown', onClick);
 
@@ -379,29 +420,175 @@ export class GameScene extends Phaser.Scene {
     const bottom = this.stack.peekBottom();
     if (bottom === null) return;
 
+    // Key cap press animation (always)
+    const cap = this.keyCaps[lane];
+    if (cap) {
+      this.tweens.add({
+        targets: cap,
+        scale: 0.83,
+        duration: 55,
+        yoyo: true,
+        ease: 'Quad.easeInOut',
+      });
+    }
+
     if (bottom === lane) {
       const pos = this.stack.getBottomPosition();
       this.stack.consumeBottom();
       this.scoreManager.success();
       this.sound.play('se-hit', { volume: SoundSettings.seVolume() });
+
+      const combo = this.scoreManager.combo;
+
       if (pos) {
-        this.emitter.emitParticleAt(pos.x, pos.y, 10);
+        this.emitters[lane]?.emitParticleAt(pos.x, pos.y, 14);
+        this.spawnFloatText(pos.x, pos.y - 20, combo);
       }
-      if (this.scoreManager.combo >= 5 && this.scoreManager.combo % 5 === 0) {
+
+      // Score pop
+      this.tweens.add({
+        targets: this.scoreText,
+        scale: 1.22,
+        duration: 80,
+        yoyo: true,
+        ease: 'Back.easeOut',
+      });
+
+      // Combo text pulse every 5
+      if (combo >= 5 && combo % 5 === 0) {
         this.tweens.add({
           targets: this.comboText,
-          scaleX: 1.5,
-          scaleY: 1.5,
-          duration: 100,
+          scale: 1.6,
+          duration: 130,
           yoyo: true,
-          ease: 'Quad.easeOut',
+          ease: 'Back.easeOut',
         });
       }
+
+      // Milestone banner at 10/25/50
+      const milestone = this.checkMilestone(combo);
+      if (milestone) {
+        this.showMilestone(milestone.label, milestone.color);
+      }
     } else {
+      const prevCombo = this.scoreManager.combo;
       this.scoreManager.fail();
-      this.cameras.main.flash(120, 255, 80, 80);
+      this.cameras.main.shake(160, 0.011);
+      this.cameras.main.flash(80, 255, 80, 80);
+
+      if (prevCombo >= 2) {
+        this.spawnComboBreak(prevCombo);
+      }
     }
+
     this.refreshScoreUi();
+  }
+
+  private spawnFloatText(x: number, y: number, combo: number): void {
+    const isBonus = combo === 10 || combo === 25 || combo === 50;
+    const label = isBonus ? '+6' : '+1';
+    const color = isBonus ? COLORS.textAccent : '#ffffff';
+
+    const t = this.add
+      .text(x, y, label, {
+        fontFamily: FONT,
+        fontSize: isBonus ? '52px' : '44px',
+        fontStyle: 'bold',
+        color,
+      })
+      .setOrigin(0.5)
+      .setDepth(15);
+
+    if (isBonus) {
+      t.setShadow(0, 0, '#ffd54f', 12, false, true);
+    }
+
+    this.tweens.add({
+      targets: t,
+      y: y - 95,
+      alpha: 0,
+      duration: 620,
+      ease: 'Quad.easeOut',
+      onComplete: () => t.destroy(),
+    });
+  }
+
+  private spawnComboBreak(prevCombo: number): void {
+    const cx = VIEWPORT.width / 2;
+    const t = this.add
+      .text(cx, 165, `x${prevCombo}  BREAK`, {
+        fontFamily: FONT,
+        fontSize: '42px',
+        fontStyle: 'bold',
+        color: '#ff5252',
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setScale(1.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: t,
+      scale: 1,
+      alpha: 1,
+      duration: 180,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: t,
+          alpha: 0,
+          y: 148,
+          delay: 480,
+          duration: 320,
+          ease: 'Quad.easeIn',
+          onComplete: () => t.destroy(),
+        });
+      },
+    });
+  }
+
+  private checkMilestone(combo: number): { label: string; color: string } | null {
+    if (combo === 10) return { label: 'GREAT!', color: toHex(COLORS.lane[2]) };
+    if (combo === 25) return { label: 'AWESOME!', color: toHex(COLORS.lane[3]) };
+    if (combo === 50) return { label: 'PERFECT!', color: COLORS.textAccent };
+    return null;
+  }
+
+  private showMilestone(label: string, color: string): void {
+    const cx = VIEWPORT.width / 2;
+    const cy = VIEWPORT.height / 2 - 120;
+
+    const t = this.add
+      .text(cx, cy, label, {
+        fontFamily: FONT,
+        fontSize: '88px',
+        fontStyle: 'bold',
+        color,
+      })
+      .setOrigin(0.5)
+      .setDepth(15)
+      .setScale(1.9)
+      .setAlpha(0)
+      .setShadow(0, 0, color, 24, false, true);
+
+    this.tweens.add({
+      targets: t,
+      scale: 1,
+      alpha: 1,
+      duration: 260,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: t,
+          alpha: 0,
+          scale: 0.82,
+          delay: 520,
+          duration: 330,
+          ease: 'Quad.easeIn',
+          onComplete: () => t.destroy(),
+        });
+      },
+    });
   }
 
   private refreshScoreUi(): void {
@@ -418,9 +605,21 @@ export class GameScene extends Phaser.Scene {
       const remain = Math.max(0, this.sessionTimer.getRemaining());
       const secs = Math.ceil(remain / 1000);
       this.timerText.setText(`${secs}`);
+
       if (secs <= 10) {
         this.timerText.setColor('#ff5252');
+        if (secs !== this.lastTimerSecs) {
+          this.tweens.add({
+            targets: this.timerText,
+            scale: 1.35,
+            duration: 130,
+            yoyo: true,
+            ease: 'Back.easeOut',
+          });
+        }
       }
+
+      this.lastTimerSecs = secs;
     }
 
     if (this.isPaused) return;
@@ -430,7 +629,10 @@ export class GameScene extends Phaser.Scene {
   private endSession(): void {
     this.removeVolumeOverlay();
     this.bgm.stop();
-    this.scene.start('GameOverScene', { score: this.scoreManager.score });
+    this.cameras.main.fadeOut(180, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('GameOverScene', { score: this.scoreManager.score });
+    });
   }
 
   shutdown(): void {

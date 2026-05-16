@@ -19,8 +19,19 @@ export class Character extends Phaser.GameObjects.Container {
     const bg = scene.add.graphics();
     bg.fillStyle(color, 0.95);
     bg.fillRoundedRect(-NOTE_W / 2, -NOTE_H / 2, NOTE_W, NOTE_H, NOTE_R);
-    bg.lineStyle(4, 0xffffff, 0.7);
+    bg.lineStyle(4, 0xffffff, 0.65);
     bg.strokeRoundedRect(-NOTE_W / 2, -NOTE_H / 2, NOTE_W, NOTE_H, NOTE_R);
+
+    // Inner top highlight for glass effect
+    const shine = scene.add.graphics();
+    shine.fillStyle(0xffffff, 0.2);
+    shine.fillRoundedRect(
+      -NOTE_W / 2 + 6,
+      -NOTE_H / 2 + 6,
+      NOTE_W - 12,
+      26,
+      { tl: 12, tr: 12, bl: 0, br: 0 },
+    );
 
     const label = scene.add
       .text(0, 2, LANES.keys[lane], {
@@ -31,7 +42,7 @@ export class Character extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    this.add([bg, label]);
+    this.add([bg, shine, label]);
     scene.add.existing(this);
   }
 }

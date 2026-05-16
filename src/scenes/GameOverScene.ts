@@ -27,54 +27,203 @@ export class GameOverScene extends Phaser.Scene {
     g.fillGradientStyle(COLORS.jungleDark, COLORS.jungleDark, COLORS.background, COLORS.background);
     g.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
 
-    this.add
-      .text(cx, 300, 'TIME UP!', {
+    // "TIME UP!" with scale-in entrance
+    const timeUpText = this.add
+      .text(cx, 290, 'TIME UP!', {
         fontFamily: FONT,
         fontSize: '110px',
         fontStyle: 'bold',
         color: COLORS.textAccent,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setScale(1.8)
+      .setShadow(0, 0, '#ffd54f', 20, false, true);
 
-    this.add
-      .text(cx, 470, `SCORE  ${score}`, {
+    this.tweens.add({
+      targets: timeUpText,
+      alpha: 1,
+      scale: 1,
+      delay: 100,
+      duration: 420,
+      ease: 'Back.easeOut',
+    });
+
+    // Score label
+    const scoreLabel = this.add
+      .text(cx, 445, 'SCORE', {
         fontFamily: FONT,
-        fontSize: '72px',
+        fontSize: '36px',
+        color: '#aaaaaa',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    // Score number — counts up from 0
+    const scoreDisplay = this.add
+      .text(cx, 520, '0', {
+        fontFamily: FONT,
+        fontSize: '100px',
         fontStyle: 'bold',
         color: COLORS.textPrimary,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setAlpha(0);
 
-    this.add
-      .text(cx, 570, `BEST  ${highScore}${isNewHigh ? '  🎉 NEW!' : ''}`, {
+    this.tweens.add({ targets: [scoreLabel, scoreDisplay], alpha: 1, delay: 420, duration: 300 });
+
+    // Best score row — shown after count-up completes
+    const bestText = this.add
+      .text(cx, 648, `BEST  ${highScore}${isNewHigh ? '  ★ NEW!' : ''}`, {
         fontFamily: FONT,
         fontSize: '44px',
         color: isNewHigh ? COLORS.textAccent : COLORS.textPrimary,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setAlpha(0);
 
-    // ランキング送信ボタン
-    this.makeButton(cx, VIEWPORT.height - 500, 'ランキングに登録', COLORS.lane[3], () => {
+    if (isNewHigh) {
+      bestText.setShadow(0, 0, '#ffd54f', 12, false, true);
+    }
+
+    const countDuration = Math.min(1200, Math.max(500, score * 22));
+    this.tweens.addCounter({
+      from: 0,
+      to: score,
+      duration: countDuration,
+      delay: 620,
+      ease: 'Quad.easeOut',
+      onUpdate: (tween) => {
+        scoreDisplay.setText(String(Math.round(tween.getValue() ?? 0)));
+      },
+      onComplete: () => {
+        // Final pop on the number
+        this.tweens.add({
+          targets: scoreDisplay,
+          scale: 1.2,
+          duration: 110,
+          yoyo: true,
+          ease: 'Back.easeOut',
+        });
+
+        this.tweens.add({ targets: bestText, alpha: 1, duration: 400 });
+
+        if (isNewHigh) {
+          this.spawnConfetti(cx, 520);
+        }
+      },
+    });
+
+    // Buttons — staggered entrance
+    const rankingBtn = this.makeButton(cx, VIEWPORT.height - 500, 'ランキングに登録', COLORS.lane[3], () => {
       this.showNicknameOverlay(score);
     });
-
-    // RETRY
-    this.makeButton(cx, VIEWPORT.height - 380, 'RETRY', COLORS.lane[2], () => {
-      this.scene.start('GameScene');
+    const retryBtn = this.makeButton(cx, VIEWPORT.height - 378, 'RETRY', COLORS.lane[2], () => {
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+    });
+    const titleBtn = this.makeButton(cx, VIEWPORT.height - 258, 'TITLE', 0x607d8b, () => {
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
     });
 
-    // TITLE
-    this.makeButton(cx, VIEWPORT.height - 260, 'TITLE', 0x607d8b, () => {
-      this.scene.start('TitleScene');
+    [rankingBtn, retryBtn, titleBtn].forEach((btn, i) => {
+      btn.setAlpha(0).setScale(0.88);
+      this.tweens.add({
+        targets: btn,
+        alpha: 1,
+        scale: 1,
+        delay: 1100 + i * 110,
+        duration: 320,
+        ease: 'Back.easeOut',
+      });
     });
 
-    this.input.keyboard?.on('keydown-ENTER', () => this.scene.start('GameScene'));
-    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TitleScene'));
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('GameScene'));
+    });
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.cameras.main.fadeOut(180, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
+    });
 
-    // ゲーム終了から少し待って自動でニックネーム入力を表示する
     this.time.delayedCall(800, () => {
       this.showNicknameOverlay(score);
     });
+
+    this.cameras.main.fadeIn(220, 0, 0, 0);
+  }
+
+  private spawnConfetti(cx: number, y: number): void {
+    COLORS.lane.forEach((color, i) => {
+      const key = `confetti-${i}`;
+      if (!this.textures.exists(key)) {
+        const g = this.make.graphics({});
+        g.fillStyle(color);
+        g.fillRect(0, 0, 10, 6);
+        g.generateTexture(key, 10, 6);
+        g.destroy();
+      }
+
+      const emitter = this.add.particles(cx, y, key, {
+        speed: { min: 200, max: 500 },
+        angle: { min: -165, max: -15 },
+        gravityY: 360,
+        scale: { start: 1, end: 0.3 },
+        alpha: { start: 1, end: 0.4 },
+        lifespan: 2100,
+        quantity: 12,
+        emitting: false,
+      });
+      emitter.setDepth(20);
+      this.time.delayedCall(i * 65, () => {
+        emitter.emitParticleAt(cx, y, 15);
+      });
+    });
+  }
+
+  private makeButton(
+    x: number,
+    y: number,
+    label: string,
+    color: number,
+    onClick: () => void,
+  ): Phaser.GameObjects.Container {
+    const w = 460;
+    const h = 84;
+
+    const bg = this.add.graphics();
+    const drawBg = (alpha: number) => {
+      bg.clear();
+      bg.fillStyle(color, alpha);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
+      bg.lineStyle(2, 0xffffff, 0.2);
+      bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
+      bg.fillStyle(0xffffff, 0.1);
+      bg.fillRoundedRect(-w / 2 + 5, -h / 2 + 5, w - 10, 18, { tl: 12, tr: 12, bl: 0, br: 0 });
+    };
+    drawBg(0.9);
+
+    const text = this.add
+      .text(0, 0, label, { fontFamily: FONT, fontSize: '44px', fontStyle: 'bold', color: '#fff' })
+      .setOrigin(0.5);
+
+    const container = this.add.container(x, y);
+    const hit = this.add.rectangle(0, 0, w, h, 0, 0).setInteractive({ useHandCursor: true });
+    container.add([bg, text, hit]);
+
+    hit.on('pointerover', () => {
+      drawBg(1.0);
+      this.tweens.add({ targets: container, scale: 1.06, duration: 120, ease: 'Back.easeOut' });
+    });
+    hit.on('pointerout', () => {
+      drawBg(0.9);
+      this.tweens.add({ targets: container, scale: 1.0, duration: 120 });
+    });
+    hit.on('pointerdown', onClick);
+
+    return container;
   }
 
   private showNicknameOverlay(score: number): void {
@@ -146,29 +295,6 @@ export class GameOverScene extends Phaser.Scene {
       this.nicknameOverlay.remove();
       this.nicknameOverlay = null;
     }
-  }
-
-  private makeButton(
-    x: number,
-    y: number,
-    label: string,
-    color: number,
-    onClick: () => void,
-  ): void {
-    const w = 460;
-    const h = 84;
-    const bg = this.add.graphics();
-    bg.fillStyle(color, 0.9);
-    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 18);
-
-    this.add
-      .text(x, y, label, { fontFamily: FONT, fontSize: '46px', fontStyle: 'bold', color: '#fff' })
-      .setOrigin(0.5);
-
-    const hit = this.add.rectangle(x, y, w, h, 0, 0).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => bg.setAlpha(0.65));
-    hit.on('pointerout', () => bg.setAlpha(1));
-    hit.on('pointerdown', onClick);
   }
 
   shutdown(): void {
